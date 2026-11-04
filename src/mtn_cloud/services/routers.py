@@ -8,7 +8,12 @@ from typing import Any, List
 
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.router import ExternalNetwork, Router, RouterCreate, RouterInterface
-from mtn_cloud.modern_exceptions import MtnCloudError, NotFoundError, TimeoutError
+from mtn_cloud.modern_exceptions import (
+    LookupNotFoundError,
+    MtnCloudError,
+    NotFoundError,
+    TimeoutError,
+)
 from mtn_cloud.services.base import Page, Service
 
 
@@ -76,7 +81,7 @@ class RoutersService(Service[Router]):
             if interface.subnet_id == subnet_id
         ]
         if not matches:
-            raise ValueError(f"Router {router_id} has no interface for subnet {subnet_id}")
+            raise LookupNotFoundError(f"Router {router_id} has no interface for subnet {subnet_id}")
         if len(matches) > 1:
             raise ValueError(f"Router {router_id} has multiple interfaces for subnet {subnet_id}")
         return matches[0]

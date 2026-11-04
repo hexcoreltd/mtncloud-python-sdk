@@ -26,9 +26,10 @@ from mtn_cloud.transport import Transport
 class MtnCloudClient:
     """Synchronous MTN Cloud control-plane client.
 
-    The initial API intentionally exposes only the verified foundation and
-    current-user operation. Resource services will be added incrementally as
-    their live contracts are confirmed.
+    Resource services are exposed as lazily created properties (for example
+    ``instances``, ``networks``, ``routers`` and ``volumes``). Each service
+    covers only operations whose MTN Cloud contracts have been verified; new
+    operations are added as their live contracts are confirmed.
     """
 
     def __init__(

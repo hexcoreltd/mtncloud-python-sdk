@@ -14,6 +14,7 @@ would normally require a major release in a mature stable SDK.
 - Typed router interface discovery and subnet-based interface lookup.
 - Typed storage-volume lookup by unique name and unattached-volume discovery.
 - Typed network-pool IP lookup by exact address.
+- Modern `ForbiddenError` (HTTP 403) and `ConflictError` (HTTP 409) exceptions.
 
 - Modern typed router service with router discovery, external gateway options,
   MTN neutron-router creation/deletion, and readiness/deletion waiters.
@@ -34,6 +35,21 @@ would normally require a major release in a mature stable SDK.
 
 ### Changed
 
+- Name-based lookups (`networks.get_subnet`, `networks.get_subnet_by_name`,
+  `networks.get_pool_ip`, `volumes.get_by_name`, `routers.get_interface`, and
+  layout-name resolution in `instances.provision`) now raise
+  `LookupNotFoundError`, a `NotFoundError`, when nothing matches. This is
+  consistent with other modern services. Because it is also a `ValueError`,
+  existing `except ValueError` handlers still catch it. However, an
+  `except NotFoundError:` or `except MtnCloudError:` clause listed before them
+  now catches the miss first.
+- HTTP 403 and 409 responses now raise `ForbiddenError` and `ConflictError`.
+  Both subclass `MtnCloudError`, so existing handlers still catch them.
+- The default user agent is derived from the package version, and a
+  regression test keeps `pyproject.toml`, `_version.py`, and the README badge
+  in sync.
+- Clarified the modern and legacy exception exports in the package namespace
+  and README.
 - Hardened the request and service layers for strict static type checking.
 - Standardized repository formatting and lint compliance for CI quality gates.
 

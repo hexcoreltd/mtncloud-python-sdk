@@ -23,16 +23,20 @@ from mtn_cloud.settings import ClientSettings
 __author__ = "Hexcore Ltd"
 __license__ = "MIT"
 __all__ = [
-    # Main client
-    "MTNCloud",
+    "__version__",
+    # Modern client (recommended for new integrations).
     "MtnCloudClient",
-    "MtnCloudError",
-    "ModernTimeoutError",
-    "TransportError",
-    # Configuration
-    "MTNCloudConfig",
     "ClientSettings",
-    # Exceptions
+    # Modern exceptions. ``ModernTimeoutError`` is
+    # ``mtn_cloud.modern_exceptions.TimeoutError``, renamed so it does not
+    # shadow the built-in. Prefer importing from ``mtn_cloud.modern_exceptions``.
+    "MtnCloudError",
+    "TransportError",
+    "ModernTimeoutError",
+    # Legacy client, kept for compatibility. Note the casing: ``MTNCloudError``
+    # is the legacy base class; ``MtnCloudError`` above is the modern one.
+    "MTNCloud",
+    "MTNCloudConfig",
     "MTNCloudError",
     "AuthenticationError",
     "NotFoundError",
@@ -43,5 +47,4 @@ __all__ = [
     "TimeoutError",
     "QuotaExceededError",
     "ResourceConflictError",
-    "__version__",
 ]

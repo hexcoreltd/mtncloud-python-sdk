@@ -1,3 +1,4 @@
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -9,8 +10,16 @@ from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
 from mtn_cloud.models.snapshot import SnapshotCreate
 from mtn_cloud.models.storage_bucket import StorageBucketCreate, StorageBucketUpdate
-from mtn_cloud.modern_exceptions import AuthenticationError, MtnCloudError
+from mtn_cloud.modern_exceptions import (
+    AuthenticationError,
+    ConflictError,
+    ForbiddenError,
+    LookupNotFoundError,
+    MtnCloudError,
+    NotFoundError,
+)
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
+from mtn_cloud.services.instances import InstancesService
 from mtn_cloud.transport import HttpResponse
 
 
@@ -803,3 +812,105 @@ def test_security_groups_service_manages_groups_and_rules() -> None:
         "POST",
         "/security-groups/70/rules",
     )
+
+
+@pytest.mark.parametrize(
+    ("status_code", "error_type"),
+    [(403, ForbiddenError), (409, ConflictError)],
+)
+def test_http_errors_map_forbidden_and_conflict(
+    status_code: int, error_type: type[MtnCloudError]
+) -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        status_code, {}, {"message": "rejected"}, request_id="req-9"
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(error_type) as raised:
+        client.whoami()
+
+    assert raised.value.status_code == status_code
+    assert raised.value.request_id == "req-9"
+
+
+def _lookup_cases() -> list[tuple[dict[str, Any], Any, str]]:
+    return [
+        ({"subnets": [{"id": 51}]}, lambda c: c.networks.get_subnet(50, 99), "Subnet 99"),
+        (
+            {"subnets": [{"id": 51, "name": "a"}]},
+            lambda c: c.networks.get_subnet_by_name(50, "b"),
+            "Subnet 'b'",
+        ),
+        (
+            {"networkPoolIps": []},
+            lambda c: c.networks.get_pool_ip(8, "10.0.0.10"),
+            "IP address '10.0.0.10'",
+        ),
+        ({"storageVolumes": []}, lambda c: c.volumes.get_by_name("root"), "Storage volume"),
+        (
+            {"networkRouter": {"id": 5, "name": "edge-router", "interfaces": []}},
+            lambda c: c.routers.get_interface(5, 51),
+            "no interface for subnet 51",
+        ),
+    ]
+
+
+@pytest.mark.parametrize(("body", "lookup", "message"), _lookup_cases())
+def test_client_side_lookups_raise_not_found(
+    body: dict[str, Any], lookup: Any, message: str
+) -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(200, {}, body)
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(LookupNotFoundError, match=message) as raised:
+        lookup(client)
+
+    assert isinstance(raised.value, NotFoundError)
+    # Kept catchable as ValueError for callers written against earlier releases.
+    assert isinstance(raised.value, ValueError)
+
+
+def _ambiguous_cases() -> list[tuple[dict[str, Any], Any]]:
+    interface = {"networkSubnet": {"id": 51}}
+    return [
+        (
+            {"subnets": [{"id": 51, "name": "a"}, {"id": 52, "name": "a"}]},
+            lambda c: c.networks.get_subnet_by_name(50, "a"),
+        ),
+        (
+            {"networkPoolIps": [{"id": 1, "ipAddress": "10.0.0.10"}] * 2},
+            lambda c: c.networks.get_pool_ip(8, "10.0.0.10"),
+        ),
+        (
+            {"storageVolumes": [{"id": 1, "name": "root"}, {"id": 2, "name": "root"}]},
+            lambda c: c.volumes.get_by_name("root"),
+        ),
+        (
+            {"networkRouter": {"id": 5, "name": "r", "interfaces": [interface, interface]}},
+            lambda c: c.routers.get_interface(5, 51),
+        ),
+    ]
+
+
+@pytest.mark.parametrize(("body", "lookup"), _ambiguous_cases())
+def test_ambiguous_lookups_raise_value_error_not_not_found(
+    body: dict[str, Any], lookup: Any
+) -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(200, {}, body)
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(ValueError) as raised:
+        lookup(client)
+
+    assert not isinstance(raised.value, NotFoundError)
+
+
+def test_provisioning_rejects_unknown_layout_name_as_not_found() -> None:
+    instance_type = Mock(code="MTN-CS10")
+    instance_type.get_layout_by_name.return_value = None
+
+    with pytest.raises(LookupNotFoundError, match="Layout 'missing' not found"):
+        InstancesService._resolve_layout(instance_type, "missing")

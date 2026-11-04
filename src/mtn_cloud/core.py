@@ -9,6 +9,8 @@ import requests
 from mtn_cloud.auth import CredentialProvider, StaticTokenProvider
 from mtn_cloud.modern_exceptions import (
     AuthenticationError,
+    ConflictError,
+    ForbiddenError,
     MtnCloudError,
     NotFoundError,
     RateLimitError,
@@ -103,8 +105,12 @@ class CoreClient:
         }
         if response.status_code == 401:
             raise AuthenticationError(message, **kwargs)
+        if response.status_code == 403:
+            raise ForbiddenError(message, **kwargs)
         if response.status_code == 404:
             raise NotFoundError(message, **kwargs)
+        if response.status_code == 409:
+            raise ConflictError(message, **kwargs)
         if response.status_code == 400:
             raise ValidationError(message, **kwargs)
         if response.status_code == 429:

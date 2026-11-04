@@ -3,8 +3,10 @@
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from mtn_cloud._version import __version__
+
 DEFAULT_BASE_URL = "https://console.cloud.mtn.ng"
-DEFAULT_USER_AGENT = "mtncloud-python-sdk/0.1.0"
+DEFAULT_USER_AGENT = f"mtncloud-python-sdk/{__version__}"
 
 
 class ClientSettings(BaseSettings):

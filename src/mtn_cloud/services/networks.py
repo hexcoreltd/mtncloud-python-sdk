@@ -11,7 +11,7 @@ from mtn_cloud.models.network import (
     NetworkUpdate,
     Subnet,
 )
-from mtn_cloud.modern_exceptions import MtnCloudError
+from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -96,14 +96,14 @@ class NetworksService(Service[Network]):
         for subnet in self.list_subnets(network_id):
             if subnet.id == subnet_id:
                 return subnet
-        raise ValueError(f"Subnet {subnet_id} was not found in network {network_id}")
+        raise LookupNotFoundError(f"Subnet {subnet_id} was not found in network {network_id}")
 
     def get_subnet_by_name(self, network_id: int, name: str) -> Subnet:
         """Return a uniquely named subnet within a network."""
 
         matches = [subnet for subnet in self.list_subnets(network_id) if subnet.name == name]
         if not matches:
-            raise ValueError(f"Subnet '{name}' was not found in network {network_id}")
+            raise LookupNotFoundError(f"Subnet '{name}' was not found in network {network_id}")
         if len(matches) > 1:
             raise ValueError(f"Subnet name '{name}' is ambiguous in network {network_id}")
         return matches[0]
@@ -201,7 +201,7 @@ class NetworksService(Service[Network]):
             if item.ip_address == ip_address
         ]
         if not matches:
-            raise ValueError(f"IP address '{ip_address}' was not found in pool {pool_id}")
+            raise LookupNotFoundError(f"IP address '{ip_address}' was not found in pool {pool_id}")
         if len(matches) > 1:
             raise ValueError(f"IP address '{ip_address}' is ambiguous in pool {pool_id}")
         return matches[0]

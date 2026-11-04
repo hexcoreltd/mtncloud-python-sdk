@@ -3,7 +3,7 @@
 from typing import Any, List
 
 from mtn_cloud.models.volume import StorageVolume, StorageVolumeType
-from mtn_cloud.modern_exceptions import MtnCloudError
+from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -50,7 +50,7 @@ class VolumesService(Service[StorageVolume]):
             volume for volume in self.list(phrase=name, zone_id=zone_id) if volume.name == name
         ]
         if not matches:
-            raise ValueError(f"Storage volume '{name}' was not found")
+            raise LookupNotFoundError(f"Storage volume '{name}' was not found")
         if len(matches) > 1:
             raise ValueError(f"Storage volume name '{name}' is ambiguous")
         return matches[0]
