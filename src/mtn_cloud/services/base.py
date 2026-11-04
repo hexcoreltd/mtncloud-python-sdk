@@ -1,8 +1,8 @@
 """Shared primitives for modern service clients."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -59,6 +59,26 @@ class Service(Generic[T]):
             limit=limit,
             total=total,
         )
+
+    def list_all(self, *, page_size: int = 100, **filters: Any) -> list[T]:
+        """Return every item by following pagination through the service's ``list_page``."""
+        if page_size < 1:
+            raise ValueError("page_size must be at least 1")
+        list_page = cast(Callable[..., Page[T]], getattr(self, "list_page"))  # noqa: B009
+        collected: list[T] = []
+        offset = 0
+        while True:
+            page = list_page(limit=page_size, offset=offset, **filters)
+            if not page.items:
+                break
+            collected.extend(page.items)
+            offset += len(page.items)
+            if page.total is not None:
+                if len(collected) >= page.total:
+                    break
+            elif len(page.items) < page_size:
+                break
+        return collected
 
     def _get(self, resource_id: int) -> T:
         body = self._core.request("GET", f"{self.path}/{resource_id}")

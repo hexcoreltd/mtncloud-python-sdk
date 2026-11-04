@@ -1074,3 +1074,93 @@ def test_modern_errors_survive_pickling(error_type: type[MtnCloudError]) -> None
     assert type(copied) is error_type
     assert copied.__dict__ == error.__dict__
     assert copied.response is not error.response
+
+
+def _instances_response(ids: list[int], **meta: Any) -> HttpResponse:
+    body: dict[str, Any] = {"instances": [{"id": item} for item in ids]}
+    if meta:
+        body["meta"] = meta
+    return HttpResponse(200, {}, body)
+
+
+def test_list_all_follows_pages_until_total() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _instances_response([1, 2], total=3),
+        _instances_response([3], total=3),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    instances = client.instances.list_all(page_size=2)
+
+    assert [item.id for item in instances] == [1, 2, 3]
+    assert transport.request.call_count == 2
+    second_params = transport.request.call_args_list[1].kwargs["params"]
+    assert second_params["offset"] == 2
+    assert second_params["max"] == 2
+
+
+def test_list_all_stops_on_short_page_without_total() -> None:
+    transport = Mock()
+    transport.request.return_value = _instances_response([1])
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    instances = client.instances.list_all(page_size=2)
+
+    assert [item.id for item in instances] == [1]
+    assert transport.request.call_count == 1
+
+
+def test_list_all_stops_on_empty_page() -> None:
+    transport = Mock()
+    transport.request.return_value = _instances_response([], total=10)
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    assert client.instances.list_all(page_size=2) == []
+    assert transport.request.call_count == 1
+
+
+def test_list_all_stops_when_api_ignores_offset() -> None:
+    transport = Mock()
+    transport.request.return_value = _instances_response([1, 2], offset=0, total=4)
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    instances = client.instances.list_all(page_size=2)
+
+    assert len(instances) == 4
+    assert transport.request.call_count == 2
+
+
+def test_list_all_passes_filters_to_every_page() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _instances_response([1, 2], total=3),
+        _instances_response([3], total=3),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    client.instances.list_all(page_size=2, zone_id=4)
+
+    for call in transport.request.call_args_list:
+        assert call.kwargs["params"]["zoneId"] == 4
+
+
+def test_list_all_propagates_mid_pagination_errors() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _instances_response([1, 2], total=5),
+        HttpResponse(503, {}, {"message": "unavailable"}),
+    ]
+    client = MtnCloudClient(
+        settings=ClientSettings(token="secret", max_retries=0), transport=transport
+    )
+
+    with pytest.raises(ServerError):
+        client.instances.list_all(page_size=2)
+
+
+def test_list_all_rejects_invalid_page_size() -> None:
+    client = MtnCloudClient(token="secret", transport=Mock())
+
+    with pytest.raises(ValueError):
+        client.instances.list_all(page_size=0)

@@ -10,6 +10,7 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- `list_all()` on modern list services, which follows pagination across all pages.
 - Typed read-only subnet lookup by ID and unique name within a parent network.
 - Typed router interface discovery and subnet-based interface lookup.
 - Typed storage-volume lookup by unique name and unattached-volume discovery.
