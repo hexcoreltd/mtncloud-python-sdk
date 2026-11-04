@@ -538,3 +538,116 @@ def test_table_cells_are_not_parsed_as_markup(capsys: pytest.CaptureFixture[str]
     transport.request.return_value = _resp({"instances": [{"id": 1, "name": "[/bold]oops"}]})
     assert _run_with(transport, ["instances", "list", "-o", "table"]) == 0
     assert "[/bold]oops" in capsys.readouterr().out
+
+
+# --- inventory ---------------------------------------------------------------------------
+
+
+def _inventory_transport(
+    overrides: dict[str, HttpResponse] | None = None, default: HttpResponse | None = None
+) -> Mock:
+    bodies = {
+        "/instances": _resp({"instances": [{"id": 1, "name": "a", "status": "running"}]}),
+        "/networks": _resp({"networks": [{"id": 2, "name": "n", "config": {"s": 1}}]}),
+        "/networks/routers": _resp({"networkRouters": [{"id": 3, "name": "r"}]}),
+    }
+    bodies.update(overrides or {})
+
+    def request(method: str, path: str, **kwargs: Any) -> HttpResponse:
+        return default if default is not None else bodies[path]
+
+    transport = Mock()
+    transport.request.side_effect = request
+    return transport
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_document_snapshot(capsys: pytest.CaptureFixture[str]) -> None:
+    assert _run_with(_inventory_transport(), ["inventory", "-o", "json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["schema"] == "mtncloud.inventory/v1"
+    assert doc["generated_at"] == "2026-11-04T10:00:00Z"
+    assert doc["sdk_version"] == __version__
+    assert doc["base_url"] == "https://console.cloud.mtn.ng"
+    assert doc["scope"] == {"group": None, "zone": None}
+    assert list(doc["resources"]) == ["instances", "networks", "routers"]
+    for section in doc["resources"].values():
+        assert section["count"] == 1
+        assert len(section["items"]) == 1
+    assert "config" not in doc["resources"]["networks"]["items"][0]
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_partial_failure_exits_3(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport({"/networks/routers": _resp({"message": "no"}, 403)})
+    assert _run_with(transport, ["inventory", "-o", "json"]) == 3
+    doc = json.loads(capsys.readouterr().out)
+    routers = doc["resources"]["routers"]
+    assert set(routers) == {"error"}
+    assert routers["error"]["type"] == "ForbiddenError"
+    assert routers["error"]["status_code"] == 403
+    assert doc["resources"]["instances"]["count"] == 1
+    assert doc["resources"]["networks"]["count"] == 1
+
+
+def test_inventory_all_failed_uses_first_error_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("MTN_CLOUD_TOKEN", "tok-test")
+    monkeypatch.setenv("MTN_CLOUD_MAX_RETRIES", "0")
+    transport = _inventory_transport(
+        {
+            "/instances": _resp({"message": "bad"}, 401),
+            "/networks": _resp({"message": "down"}, 503),
+            "/networks/routers": _resp({"message": "down"}, 503),
+        }
+    )
+    assert _run_with(transport, ["inventory", "-o", "json"]) == 6
+    doc = json.loads(capsys.readouterr().out)
+    assert all("error" in s for s in doc["resources"].values())
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_only_filters_sections(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport()
+    assert _run_with(transport, ["inventory", "--only", "networks", "-o", "json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert list(doc["resources"]) == ["networks"]
+    assert transport.request.call_count == 1
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_unknown_only_is_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport()
+    assert _run_with(transport, ["inventory", "--only", "volumes", "-o", "json"]) == 2
+    assert capsys.readouterr().out == ""
+    transport.request.assert_not_called()
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_scope_is_recorded(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport()
+    assert _run_with(transport, ["inventory", "--group", "7", "-o", "json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["scope"] == {"group": "7", "zone": None}
+    assert all(c.kwargs["params"]["siteId"] == 7 for c in transport.request.call_args_list)
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_unresolvable_scope_fails_before_sections(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"groups": []})
+    assert _run_with(transport, ["inventory", "--group", "missing", "-o", "json"]) == 4
+    assert capsys.readouterr().out == ""
+    assert transport.request.call_count == 1
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_table_mode(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport({"/networks/routers": _resp({"message": "no"}, 403)})
+    assert _run_with(transport, ["inventory", "-o", "table"]) == 3
+    captured = capsys.readouterr()
+    assert "instances" in captured.out
+    assert "ForbiddenError" in captured.err

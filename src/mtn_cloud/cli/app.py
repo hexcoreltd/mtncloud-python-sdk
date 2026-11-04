@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -11,6 +12,7 @@ import typer
 from pydantic import ValidationError as PydanticValidationError
 
 from mtn_cloud import ClientSettings, MtnCloudClient, __version__
+from mtn_cloud.cli import inventory as inventory_module
 from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentialsError
 from mtn_cloud.cli.output import OutputFormat
@@ -69,6 +71,19 @@ def _validate_format(requested: str | None) -> OutputFormat:
     return output.resolve_format(requested)
 
 
+def _select_specs(only: str | None) -> list[ResourceSpec]:
+    if only is None:
+        return list(REGISTRY.values())
+    names = [part.strip() for part in only.split(",") if part.strip()]
+    unknown = [n for n in names if n not in REGISTRY]
+    if unknown or not names:
+        raise typer.BadParameter(
+            f"unknown resource {', '.join(unknown) or only!r}; choose from {', '.join(REGISTRY)}",
+            param_hint="--only",
+        )
+    return [spec for name, spec in REGISTRY.items() if name in names]
+
+
 def build_app(
     *, client_factory: ClientFactory, now: Callable[[], datetime], state: CliState | None = None
 ) -> typer.Typer:
@@ -122,6 +137,46 @@ def build_app(
         else:
             typer.echo(f"mtncloud {__version__}")
         return EXIT_OK
+
+    @app.command()
+    def inventory(
+        ctx: typer.Context,
+        only: str | None = typer.Option(  # noqa: UP007
+            None, "--only", help="Comma-separated resources to include."
+        ),
+        group: str | None = typer.Option(None, "--group", help="Group name or ID."),  # noqa: UP007
+        zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
+        output_format: str | None = typer.Option(  # noqa: UP007
+            None, "-o", "--output", help="Output format: json or table."
+        ),
+    ) -> int:
+        """Snapshot every resource section; exit 3 if some sections fail."""
+        cli: CliContext = ctx.obj
+        if output_format is not None:
+            cli.fmt = _validate_format(output_format)
+            state.fmt = cli.fmt
+        specs = _select_specs(only)
+        client = cli.client()
+        scope = resolve_scope(client, group=group, zone=zone)
+        sections = inventory_module.collect_sections(client, scope, specs)
+        document, code = inventory_module.build_inventory(
+            client,
+            scope,
+            specs,
+            base_url=str(cli.settings.base_url),
+            now=cli.now,
+            sections=sections,
+        )
+        if cli.fmt == "json":
+            output.emit_json(document)
+        else:
+            for spec, result in sections:
+                if isinstance(result, Exception):
+                    output.emit_error(result, "table")
+                else:
+                    sys.stdout.write(f"{spec.name}\n")
+                    output.emit_table(spec.columns, result)
+        return code
 
     for spec in REGISTRY.values():
         app.add_typer(_resource_app(spec, state), name=spec.name)
