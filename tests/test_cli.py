@@ -488,3 +488,22 @@ def test_missing_credentials_exit_6_without_request(capsys: pytest.CaptureFixtur
     out, err = _stderr_error(capsys)
     assert out == ""
     assert err["error"]["type"] == "MissingCredentialsError"
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("command", ["list", "describe"])
+def test_network_config_is_excluded(command: str, capsys: pytest.CaptureFixture[str]) -> None:
+    payload = {"id": 5, "name": "net", "config": {"secret": "s3cret"}}
+    transport = Mock()
+    if command == "list":
+        transport.request.return_value = _resp({"networks": [payload]})
+        argv = ["networks", "list", "-o", "json"]
+    else:
+        transport.request.return_value = _resp({"network": payload})
+        argv = ["networks", "describe", "5", "-o", "json"]
+    assert _run_with(transport, argv) == 0
+    out = capsys.readouterr().out
+    doc = json.loads(out)
+    item = doc["items"][0] if command == "list" else doc["item"]
+    assert "config" not in item
+    assert "s3cret" not in out

@@ -49,6 +49,7 @@ REGISTRY: dict[str, ResourceSpec] = {
             Column("CIDR", lambda m: m.cidr),
             Column("TYPE", _network_type),
         ),
+        exclude=frozenset({"config"}),
     ),
     "routers": ResourceSpec(
         name="routers",
