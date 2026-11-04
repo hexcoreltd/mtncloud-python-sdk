@@ -271,6 +271,14 @@ management and S3-compatible data-plane object operations.
 
 ### Milestone 4 — IAM, governance, and audit
 
+Status: **contract discovery pending**
+
+The current tenant credential verifies `/whoami`, but candidate collection
+paths for users, roles, permissions, and API keys have not produced a stable
+typed contract. No IAM mutation endpoint will be guessed or added until MTN
+Cloud documentation or a verified tenant response establishes the request,
+response, and permission model.
+
 - Users and invitations
 - Roles and role assignments
 - Permission and policy discovery
