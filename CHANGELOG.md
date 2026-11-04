@@ -15,6 +15,14 @@ would normally require a major release in a mature stable SDK.
 - Typed storage-volume lookup by unique name and unattached-volume discovery.
 - Typed network-pool IP lookup by exact address.
 - Modern `ForbiddenError` (HTTP 403) and `ConflictError` (HTTP 409) exceptions.
+- Modern errors raised by the request pipeline record the failed operation's
+  `method`, query-free `path`, and `attempts` (including retries), and show
+  them in `str(error)`, for example
+  `missing (HTTP 404) [GET /instances/5, request_id=req-1]`.
+- `TransportError` messages for connection failures now name only the
+  exception type instead of embedding the underlying message, which can include
+  the full URL and query parameters. The original exception remains available
+  as `__cause__`.
 
 - Modern typed router service with router discovery, external gateway options,
   MTN neutron-router creation/deletion, and readiness/deletion waiters.

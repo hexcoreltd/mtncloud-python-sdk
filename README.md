@@ -317,6 +317,29 @@ Because Python uses the first matching `except` clause, a lookup miss now
 reaches an `except NotFoundError:` or `except MtnCloudError:` clause listed
 before an `except ValueError:` clause.
 
+Errors raised for HTTP failures and transport failures also record the
+operation that failed:
+
+- `exc.method`
+- `exc.path`, without the query string
+- `exc.attempts`, counting retries
+- `exc.status_code`
+- `exc.request_id`
+
+Printing or logging the error shows the method, the path and the request ID.
+It shows the attempt count only when the request was retried:
+
+```text
+missing (HTTP 404) [GET /instances/5, request_id=req-1]
+busy (HTTP 503) [GET /whoami, attempts=3]
+```
+
+Connection-failure messages name only the exception type, such as
+`ConnectionError`. The original exception, which can include the full URL,
+stays available as `exc.__cause__`. Errors raised after a response arrives,
+such as `LookupNotFoundError` or invalid-response errors, have these fields
+set to `None`.
+
 The package also contains the original legacy client and exception hierarchy
 for compatibility. New integrations should use `MtnCloudClient`,
 `ClientSettings`, the typed services, and `mtn_cloud.modern_exceptions`.

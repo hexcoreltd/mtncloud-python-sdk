@@ -2,6 +2,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
@@ -17,6 +18,8 @@ from mtn_cloud.modern_exceptions import (
     LookupNotFoundError,
     MtnCloudError,
     NotFoundError,
+    ServerError,
+    TransportError,
 )
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
 from mtn_cloud.services.instances import InstancesService
@@ -914,3 +917,118 @@ def test_provisioning_rejects_unknown_layout_name_as_not_found() -> None:
 
     with pytest.raises(LookupNotFoundError, match="Layout 'missing' not found"):
         InstancesService._resolve_layout(instance_type, "missing")
+
+
+def test_http_errors_carry_operation_metadata() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        404, {}, {"message": "missing"}, request_id="req-404"
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(NotFoundError) as raised:
+        client.instances.get(5)
+
+    error = raised.value
+    assert (error.method, error.path, error.attempts) == ("GET", "/instances/5", 1)
+    assert str(error) == "missing (HTTP 404) [GET /instances/5, request_id=req-404]"
+
+
+def test_retried_errors_report_attempt_count() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(503, {}, {"message": "busy"})
+    client = MtnCloudClient(
+        settings=ClientSettings(token="secret", max_retries=2, retry_delay=0),
+        transport=transport,
+        sleeper=Mock(),
+    )
+
+    with pytest.raises(ServerError) as raised:
+        client.whoami()
+
+    assert raised.value.attempts == 3
+    assert str(raised.value) == "busy (HTTP 503) [GET /whoami, attempts=3]"
+
+
+def test_transport_errors_carry_operation_metadata() -> None:
+    transport = Mock()
+    transport.request.side_effect = requests.exceptions.ConnectTimeout("slow")
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(TransportError) as raised:
+        client._core.request("post", "/instances", json={"name": "demo"})
+
+    error = raised.value
+    assert (error.method, error.path, error.attempts) == ("POST", "/instances", 1)
+    assert error.status_code is None
+    assert str(error).endswith("[POST /instances]")
+
+
+def test_error_metadata_never_includes_query_string_or_credentials() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(400, {}, {"message": "bad"})
+    client = MtnCloudClient(token="secret-token", transport=transport)
+
+    with pytest.raises(MtnCloudError) as raised:
+        client._core.request("GET", "/instances?name=private", params={"phrase": "private"})
+
+    assert raised.value.path == "/instances"
+    assert "private" not in str(raised.value)
+    assert "secret-token" not in str(raised.value)
+
+
+def test_error_format_is_unchanged_without_operation_metadata() -> None:
+    error = MtnCloudError("failed", status_code=500, request_id="req-1")
+
+    assert (error.method, error.path, error.attempts) == (None, None, None)
+    assert str(error) == "failed (HTTP 500) [request_id=req-1]"
+
+
+def test_connection_errors_do_not_leak_urls_into_messages() -> None:
+    transport = Mock()
+    cause = requests.exceptions.ConnectionError(
+        "HTTPSConnectionPool(host='console.cloud.mtn.ng'): url: /api/instances?name=private"
+    )
+    transport.request.side_effect = cause
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(TransportError) as raised:
+        client._core.request("GET", "/instances", params={"name": "private"})
+
+    assert "private" not in str(raised.value)
+    assert str(raised.value) == "Request to /instances failed: ConnectionError [GET /instances]"
+    # The original exception stays attached for debugging.
+    assert raised.value.__cause__ is cause
+
+
+def test_transport_error_after_retry_reports_attempt_count() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(503, {}, {"message": "busy"}),
+        requests.exceptions.ConnectionError("reset"),
+    ]
+    client = MtnCloudClient(
+        settings=ClientSettings(token="secret", max_retries=2, retry_delay=0),
+        transport=transport,
+        sleeper=Mock(),
+    )
+
+    with pytest.raises(TransportError) as raised:
+        client.whoami()
+
+    assert raised.value.attempts == 2
+
+
+def test_authentication_errors_normalize_method_and_carry_metadata() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(401, {}, {"message": "invalid token"})
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(AuthenticationError) as raised:
+        client._core.request("delete", "/instances/5")
+
+    assert (raised.value.method, raised.value.path, raised.value.attempts) == (
+        "DELETE",
+        "/instances/5",
+        1,
+    )
