@@ -7,7 +7,7 @@ from typing import Any, Generic, TypeVar, cast
 from pydantic import BaseModel
 
 from mtn_cloud.core import CoreClient
-from mtn_cloud.modern_exceptions import MtnCloudError
+from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -92,3 +92,15 @@ class Service(Generic[T]):
     @staticmethod
     def _integer(value: Any, *, default: int | None = None) -> int | None:
         return value if type(value) is int and value >= 0 else default
+
+    def _get_by_name(self, kind: str, name: str, **filters: Any) -> T:
+        """Return the single resource whose name exactly matches ``name``."""
+
+        candidates = self.list_all(name=name, **filters)
+        matches = [item for item in candidates if getattr(item, "name", None) == name]
+        if not matches:
+            raise LookupNotFoundError(f"{kind} '{name}' was not found")
+        if len(matches) > 1:
+            ids = sorted(cast(Any, item).id for item in matches)
+            raise ValueError(f"{kind} name '{name}' is ambiguous: ids {ids}")
+        return matches[0]
