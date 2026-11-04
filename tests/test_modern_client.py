@@ -608,6 +608,32 @@ def test_storage_buckets_service_manages_s3_provider_configuration() -> None:
     assert transport.request.call_args_list[2].kwargs["params"] is None
 
 
+def test_applications_service_discovers_catalog_deployments() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(
+            200,
+            {},
+            {
+                "apps": [{"id": 120, "name": "managed-db", "status": "running", "type": "database"}],
+                "meta": {"offset": 0, "max": 10, "total": 1},
+            },
+        ),
+        HttpResponse(200, {}, {"app": {"id": 120, "name": "managed-db", "status": "active"}}),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    application = client.apps.list(status="running")[0]
+    fetched = client.apps.get(120)
+
+    assert application.is_running is True
+    assert fetched.status == "active"
+    assert transport.request.call_args_list[0].kwargs["params"] == {
+        "offset": 0,
+        "status": "running",
+    }
+
+
 def test_security_groups_service_manages_groups_and_rules() -> None:
     transport = Mock()
     transport.request.side_effect = [

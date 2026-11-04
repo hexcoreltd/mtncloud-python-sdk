@@ -21,4 +21,4 @@ The mutation test selects a network whose zone pool matches the selected
 resource pool, waits up to 30 minutes for provisioning, and verifies deletion.
 
 The read-only suite also verifies router discovery, router types, network
-types, and subnet parent relationships.
+types, subnet parent relationships, and provisioned-application discovery.

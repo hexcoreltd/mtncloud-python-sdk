@@ -10,6 +10,7 @@ from mtn_cloud.models.archive import (
     ArchiveDirectoryUploadResult,
     ArchiveFile,
 )
+from mtn_cloud.models.app import Application
 from mtn_cloud.models.backup import Backup, BackupJob, BackupResult
 from mtn_cloud.models.base import BaseModel, PaginatedResponse, Resource
 from mtn_cloud.models.cloud import Cloud, CloudType
@@ -62,6 +63,7 @@ from mtn_cloud.models.volume import StorageVolume, StorageVolumeType, Volume
 __all__ = [
     # Base
     "BaseModel",
+    "Application",
     "Resource",
     "PaginatedResponse",
     # Instance

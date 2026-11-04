@@ -25,6 +25,7 @@ would normally require a major release in a mature stable SDK.
 - Storage-volume type discovery at `/storage/volume-types`, including provider
   options and enabled-type filtering.
 - Modern S3-compatible storage-bucket configuration CRUD.
+- Modern read-only provisioned-application discovery at `/apps`.
 
 ### Planned
 

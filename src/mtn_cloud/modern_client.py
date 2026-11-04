@@ -17,6 +17,7 @@ from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
 from mtn_cloud.services.volumes import VolumesService
 from mtn_cloud.services.storage_buckets import StorageBucketsService
+from mtn_cloud.services.apps import ApplicationsService
 from mtn_cloud.services.zones import ZonesService
 from mtn_cloud.settings import ClientSettings
 from mtn_cloud.transport import Transport
@@ -63,6 +64,7 @@ class MtnCloudClient:
         self._backups: BackupsService | None = None
         self._volumes: VolumesService | None = None
         self._storage_buckets: StorageBucketsService | None = None
+        self._apps: ApplicationsService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -177,6 +179,14 @@ class MtnCloudClient:
         if self._storage_buckets is None:
             self._storage_buckets = StorageBucketsService(self._core)
         return self._storage_buckets
+
+    @property
+    def apps(self) -> ApplicationsService:
+        """Access provisioned applications and catalog deployments."""
+
+        if self._apps is None:
+            self._apps = ApplicationsService(self._core)
+        return self._apps
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

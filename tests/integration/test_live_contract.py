@@ -63,6 +63,9 @@ def test_live_read_only_contract(live_client: MtnCloudClient) -> None:
     subnets = live_client.networks.list_subnets(networks[0].id)
     assert all(subnet.network_id in (None, networks[0].id) for subnet in subnets)
 
+    applications = live_client.apps.list(limit=20)
+    assert all(application.id > 0 for application in applications)
+
 
 def test_live_provisioning_dry_run(live_client: MtnCloudClient) -> None:
     group = live_client.groups.list(limit=1)[0]

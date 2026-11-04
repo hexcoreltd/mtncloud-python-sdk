@@ -295,6 +295,10 @@ require explicit confirmation and provide a dry-run representation.
 
 ### Milestone 5 — Managed databases
 
+Progress: **application discovery implemented; managed-database workflow pending**
+
+- Provisioned application discovery at `/apps`
+
 - Managed database application discovery
 - Catalog-based provisioning requests
 - MySQL, PostgreSQL, MariaDB, and MongoDB workflows where enabled
