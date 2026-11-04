@@ -21,9 +21,16 @@ _FIELD_OPTIONS = {"base_url": "--base-url", "timeout": "--timeout"}
 
 
 @dataclass
+class CliState:
+    """Mutable record of the parsed global options, readable by ``main`` after a failure."""
+
+    fmt: OutputFormat | None = None
+    debug: bool = False
+
+
+@dataclass
 class CliContext:
     fmt: OutputFormat
-    debug: bool
     settings: ClientSettings
     client_factory: ClientFactory
     now: Callable[[], datetime]
@@ -59,7 +66,10 @@ def _validate_format(requested: str | None) -> OutputFormat:
     return output.resolve_format(requested)
 
 
-def build_app(*, client_factory: ClientFactory, now: Callable[[], datetime]) -> typer.Typer:
+def build_app(
+    *, client_factory: ClientFactory, now: Callable[[], datetime], state: CliState | None = None
+) -> typer.Typer:
+    state = state if state is not None else CliState()
     app = typer.Typer(
         name="mtncloud",
         help="Read-only command line interface for MTN Cloud.",
@@ -82,9 +92,11 @@ def build_app(*, client_factory: ClientFactory, now: Callable[[], datetime]) -> 
         ),
         debug: bool = typer.Option(False, "--debug", help="Print a traceback on errors."),
     ) -> None:
+        fmt = _validate_format(output_format)
+        state.fmt = fmt
+        state.debug = debug
         ctx.obj = CliContext(
-            fmt=_validate_format(output_format),
-            debug=debug,
+            fmt=fmt,
             settings=_build_settings(base_url, timeout),
             client_factory=client_factory,
             now=now,
@@ -101,6 +113,7 @@ def build_app(*, client_factory: ClientFactory, now: Callable[[], datetime]) -> 
         cli: CliContext = ctx.obj
         if output_format is not None:
             cli.fmt = _validate_format(output_format)
+            state.fmt = cli.fmt
         if cli.fmt == "json":
             output.emit_json({"schema": "mtncloud.version/v1", "version": __version__})
         else:

@@ -31,15 +31,6 @@ def _silence_stdout() -> None:
         pass
 
 
-def _scan_format(argv: list[str]) -> str | None:
-    for i, arg in enumerate(argv):
-        if arg in ("-o", "--output") and i + 1 < len(argv):
-            return argv[i + 1]
-        if arg.startswith("--output="):
-            return arg.split("=", 1)[1]
-    return None
-
-
 def main(
     argv: list[str] | None = None,
     *,
@@ -67,12 +58,28 @@ def main(
     def default_factory(settings: ClientSettings) -> MtnCloudClient:
         return MtnCloudClient(settings=settings)
 
+    state = app_module.CliState()
     cli_app = app_module.build_app(
         client_factory=client_factory or default_factory,
         now=now or (lambda: datetime.now(timezone.utc)),
+        state=state,
     )
+    if not args:
+        args = ["--help"]
+    original_stdout, original_stderr = sys.stdout, sys.stderr
     try:
-        result = cli_app(args=args, prog_name="mtncloud", standalone_mode=False)
+        try:
+            result = cli_app(args=args, prog_name="mtncloud", standalone_mode=False)
+        except SystemExit as exc:
+            # Typer converts a real EPIPE into sys.exit(1) after swapping in flush wrappers.
+            if sys.stdout is not original_stdout:
+                sys.stdout, sys.stderr = original_stdout, original_stderr
+                _silence_stdout()
+                return 0
+            code = exc.code
+            if code is None:
+                return 0
+            return code if isinstance(code, int) else EXIT_INTERNAL
         return result if isinstance(result, int) else 0
     except typer.Exit as exc:
         return exc.exit_code
@@ -92,10 +99,10 @@ def main(
     except KeyboardInterrupt:
         return EXIT_INTERRUPTED
     except Exception as exc:
-        fmt = output.resolve_format(_scan_format(args))
+        fmt = state.fmt or output.resolve_format(None)
         try:
             output.emit_error(exc, fmt)
-            if "--debug" in args:
+            if state.debug:
                 sys.stderr.write(traceback.format_exc())
         except BrokenPipeError:
             pass

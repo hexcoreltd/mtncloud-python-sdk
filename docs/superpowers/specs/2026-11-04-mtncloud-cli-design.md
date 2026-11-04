@@ -117,6 +117,12 @@ schema version.
 Each entry in `resources` contains either `count` and `items`, or `error`,
 never both. `generated_at` is UTC in RFC 3339 format.
 
+### `version`
+
+```json
+{"schema": "mtncloud.version/v1", "version": "<package version>"}
+```
+
 ### Error (stderr)
 
 ```json

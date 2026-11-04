@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import json
 import os
 import re
@@ -178,7 +179,7 @@ def test_broken_pipe_exits_quietly(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     def boom(document: Any) -> None:
-        raise BrokenPipeError
+        raise BrokenPipeError(errno.EPIPE, "Broken pipe")
 
     monkeypatch.setattr(output, "emit_json", boom)
     monkeypatch.setattr("mtn_cloud.cli._silence_stdout", lambda: None)
@@ -203,3 +204,41 @@ def test_unexpected_error_exits_1_without_traceback(
 def test_console_script_is_declared() -> None:
     text = (ROOT / "pyproject.toml").read_text()
     assert re.search(r'^mtncloud = "mtn_cloud\.cli:main"$', text, re.MULTILINE)
+
+
+def _failing_emit(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(document: Any) -> None:
+        raise RuntimeError("kaboom")
+
+    monkeypatch.setattr(output, "emit_json", boom)
+
+
+def test_command_level_output_wins_for_error_format(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _failing_emit(monkeypatch)
+    assert _run(["-o", "table", "version", "-o", "json"]) == 1
+    assert json.loads(capsys.readouterr().err)["schema"] == "mtncloud.error/v1"
+
+
+def test_debug_as_option_value_prints_no_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _failing_emit(monkeypatch)
+    assert _run(["--base-url", "--debug", "version"]) == 2
+    assert "Traceback" not in capsys.readouterr().err
+
+
+def test_debug_prints_traceback_on_unexpected_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _failing_emit(monkeypatch)
+    assert _run(["--debug", "version", "-o", "json"]) == 1
+    assert "Traceback" in capsys.readouterr().err
+
+
+def test_bare_invocation_prints_help_and_exits_0(capsys: pytest.CaptureFixture[str]) -> None:
+    assert _run([]) == 0
+    captured = capsys.readouterr()
+    assert "Usage" in captured.out
+    assert captured.err == ""
