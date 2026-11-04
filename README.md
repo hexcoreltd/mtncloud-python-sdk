@@ -354,6 +354,10 @@ publishing. Manual workflow dispatch is restricted to TestPyPI validation.
 See [`docs/releasing.md`](docs/releasing.md) for the maintainer checklist and
 GitHub environment requirements.
 
+The broader platform roadmap—including storage, IAM, databases, networking,
+autoscaling, billing, compliance-enablement, and the planned GitHub Action—is
+maintained in [`docs/roadmap.md`](docs/roadmap.md).
+
 ## Compatibility and scope
 
 This project targets the MTN Cloud Console API at
