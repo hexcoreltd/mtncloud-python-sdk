@@ -49,6 +49,20 @@ def test_live_read_only_contract(live_client: MtnCloudClient) -> None:
     networks = live_client.networks.list(zone_id=group.cloud_ids[0], limit=100)
     assert networks
 
+    routers = live_client.routers.list(
+        zone_id=group.cloud_ids[0],
+        group_id=group.id,
+        limit=20,
+    )
+    router_types = live_client.routers.list_types()
+    network_types = live_client.networks.list_types()
+    assert router_types
+    assert network_types
+    assert all(router.id > 0 for router in routers)
+
+    subnets = live_client.networks.list_subnets(networks[0].id)
+    assert all(subnet.network_id in (None, networks[0].id) for subnet in subnets)
+
 
 def test_live_provisioning_dry_run(live_client: MtnCloudClient) -> None:
     group = live_client.groups.list(limit=1)[0]
