@@ -74,6 +74,10 @@ class NotFoundError(MtnCloudError):
     """The requested resource does not exist."""
 
 
+class AmbiguousLookupError(ValueError):
+    """A client-side lookup matched more than one resource; also a ValueError for backward compatibility."""
+
+
 class LookupNotFoundError(NotFoundError, ValueError):
     """A client-side lookup within a verified collection found no match.
 

@@ -72,11 +72,12 @@ def describe_document(resource: str, item: dict[str, Any]) -> dict[str, Any]:
 def emit_table(columns: tuple[Column, ...], models: list[Any]) -> None:
     from rich.console import Console
     from rich.table import Table
+    from rich.text import Text
 
     table = Table(*(column.header for column in columns))
     for model in models:
         table.add_row(
-            *("" if (v := c.value(model)) is None else str(v) for c in columns),
+            *(Text("" if (v := c.value(model)) is None else str(v)) for c in columns),
         )
     Console(file=sys.stdout, highlight=False).print(table)
     sys.stdout.flush()

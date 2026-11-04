@@ -13,6 +13,7 @@ from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRu
 from mtn_cloud.models.snapshot import SnapshotCreate
 from mtn_cloud.models.storage_bucket import StorageBucketCreate, StorageBucketUpdate
 from mtn_cloud.modern_exceptions import (
+    AmbiguousLookupError,
     AuthenticationError,
     ConflictError,
     ForbiddenError,
@@ -1216,3 +1217,18 @@ def test_get_by_name_rejects_ambiguous_names(service: str, list_key: str) -> Non
         getattr(client, service).get_by_name("web")
 
     assert not isinstance(excinfo.value, NotFoundError)
+    assert isinstance(excinfo.value, AmbiguousLookupError)
+
+
+@pytest.mark.parametrize(("service", "list_key"), [("groups", "groups"), ("zones", "zones")])
+def test_group_and_zone_ambiguity_lists_ids(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(
+        list_key, [{"id": 7, "name": "prod"}, {"id": 3, "name": "prod"}]
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(AmbiguousLookupError, match=r"ambiguous: ids \[3, 7\]") as excinfo:
+        getattr(client, service).get_by_name("prod")
+
+    assert isinstance(excinfo.value, ValueError)

@@ -371,6 +371,7 @@ def test_ambiguous_group_exits_5(capsys: pytest.CaptureFixture[str]) -> None:
     out, err = _stderr_error(capsys)
     assert out == ""
     assert err["error"]["type"] == "AmbiguousNameError"
+    assert "ids [7, 8]" in err["error"]["message"]
 
 
 @pytest.mark.usefixtures("token")
@@ -507,3 +508,33 @@ def test_network_config_is_excluded(command: str, capsys: pytest.CaptureFixture[
     item = doc["items"][0] if command == "list" else doc["item"]
     assert "config" not in item
     assert "s3cret" not in out
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["instances", "describe", "web", "-o", "json"],
+        ["instances", "list", "--group", "prod", "-o", "json"],
+    ],
+)
+def test_malformed_payload_is_internal_error_not_ambiguous(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {
+            "instances": [{"id": "notint", "name": "web"}],
+            "groups": [{"id": "notint", "name": "prod"}],
+        }
+    )
+    assert _run_with(transport, argv) == 1
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.usefixtures("token")
+def test_table_cells_are_not_parsed_as_markup(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"instances": [{"id": 1, "name": "[/bold]oops"}]})
+    assert _run_with(transport, ["instances", "list", "-o", "table"]) == 0
+    assert "[/bold]oops" in capsys.readouterr().out

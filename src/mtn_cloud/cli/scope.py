@@ -8,7 +8,7 @@ from typing import Any
 
 from mtn_cloud import MtnCloudClient
 from mtn_cloud.cli.errors import AmbiguousNameError
-from mtn_cloud.modern_exceptions import NotFoundError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError
 
 
 @dataclass(frozen=True)
@@ -30,9 +30,7 @@ def _resolve(value: str | None, lookup: Callable[[str], Any]) -> int | None:
         return int(value)
     try:
         return int(lookup(value).id)
-    except NotFoundError:
-        raise
-    except ValueError as exc:
+    except AmbiguousLookupError as exc:
         raise AmbiguousNameError(str(exc)) from exc
 
 

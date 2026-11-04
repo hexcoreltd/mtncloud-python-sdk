@@ -16,7 +16,7 @@ from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentials
 from mtn_cloud.cli.output import OutputFormat
 from mtn_cloud.cli.registry import REGISTRY, ResourceSpec
 from mtn_cloud.cli.scope import is_id, resolve_scope
-from mtn_cloud.modern_exceptions import NotFoundError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError
 
 ClientFactory = Callable[[ClientSettings], MtnCloudClient]
 
@@ -192,9 +192,7 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
             scope = resolve_scope(client, group=group, zone=zone)
             try:
                 model = service.get_by_name(target, zone_id=scope.zone_id, group_id=scope.group_id)
-            except NotFoundError:
-                raise
-            except ValueError as exc:
+            except AmbiguousLookupError as exc:
                 raise AmbiguousNameError(str(exc)) from exc
         if cli.fmt == "json":
             output.emit_json(

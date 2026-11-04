@@ -10,6 +10,8 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- `AmbiguousLookupError` (a `ValueError`), raised when `get_by_name` matches several
+  resources. Group and zone ambiguity messages now list the matching IDs.
 - `get_by_name()` on instances, networks and routers.
 - `list_all()` on modern list services, which follows pagination across all pages.
 - Typed read-only subnet lookup by ID and unique name within a parent network.

@@ -7,7 +7,7 @@ from typing import Any, Generic, TypeVar, cast
 from pydantic import BaseModel
 
 from mtn_cloud.core import CoreClient
-from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, LookupNotFoundError, MtnCloudError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -102,5 +102,5 @@ class Service(Generic[T]):
             raise LookupNotFoundError(f"{kind} '{name}' was not found")
         if len(matches) > 1:
             ids = sorted(cast(Any, item).id for item in matches)
-            raise ValueError(f"{kind} name '{name}' is ambiguous: ids {ids}")
+            raise AmbiguousLookupError(f"{kind} name '{name}' is ambiguous: ids {ids}")
         return matches[0]
