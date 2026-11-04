@@ -10,6 +10,9 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only `mtncloud` CLI (`[cli]` extra) with `instances`, `networks`, `routers`
+  `list`/`describe`, `inventory`, and `version`; versioned JSON output and documented
+  exit codes.
 - `AmbiguousLookupError` (a `ValueError`), raised when `get_by_name` matches several
   resources. Group and zone ambiguity messages now list the matching IDs.
 - `get_by_name()` on instances, networks and routers.

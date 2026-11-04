@@ -1,6 +1,6 @@
 # `mtncloud` CLI v1 — design
 
-Status: draft for review
+Status: implemented
 Date: 2026-11-04
 Roadmap: Milestone 10, immediate next action #5 ("read-only inventory")
 
@@ -60,6 +60,10 @@ Global options:
 - `--base-url`
 - `--timeout`
 - `--debug`
+
+`-o` is accepted both before the command (`mtncloud -o json instances list`)
+and after it (`mtncloud instances list -o json`). The command-level value wins.
+Bare `mtncloud` prints help to stdout and exits 0, like `--help`.
 
 Behaviour:
 
@@ -147,10 +151,13 @@ printed to stderr as one readable line.
 Items are the SDK's Pydantic models dumped as JSON with snake_case field names
 (`model_dump(mode="json")`). Output therefore follows the SDK's tested models
 rather than raw API responses, and unknown API fields never leak through.
+`config` is excluded from instance and network items. Routers have no `config`
+field.
 
 ### Tables
 
-Each resource declares its columns in its registry entry, for example
+Cells are rendered literally, so square brackets in names are not treated as
+formatting. Each resource declares its columns in its registry entry, for example
 `ID`, `NAME`, `STATUS`, `ZONE` for instances. Tables are for people to read
 and are not part of the stable contract.
 
@@ -181,6 +188,11 @@ Rules:
 - **`inventory` failures.** If some sections fail but at least one succeeds,
   the exit code is 3. If every section fails, the exit code is that of the
   first failure in registry order.
+- **All sections failed.** `inventory` leaves stdout empty and writes the first
+  failure's error to stderr. A `--group` or `--zone` value that fails to
+  resolve fails the whole command, also with empty stdout. Only SDK errors
+  become section errors; any other exception exits 1.
+- **Broken pipe.** A closed stdout (for example `| head`) exits 0 quietly.
 - **Missing credentials** are detected before any request is made, and exit
   with 6.
 - **Failed commands** write nothing to stdout.
@@ -214,7 +226,7 @@ client-side:
 
 - One match returns the model.
 - No match raises `LookupNotFoundError`.
-- Several matches raise a plain `ValueError` that lists the matching IDs.
+- Several matches raise `AmbiguousLookupError` (a `ValueError`) that lists the sorted matching IDs. `groups` and `zones` raise it too.
 
 ## 6. Package layout
 

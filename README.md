@@ -267,6 +267,82 @@ with MtnCloudClient() as cloud:
 Review the MTN Cloud tenant permissions and API behavior before using
 security-group mutations in production.
 
+## Command-line interface
+
+The package ships a read-only `mtncloud` command for scripts, CI jobs and
+operators. It needs the optional `cli` extra, which adds Typer:
+
+```bash
+python -m pip install "mtncloud-python-sdk[cli]"
+# or as an isolated tool
+pipx install "mtncloud-python-sdk[cli]"
+uv tool install "mtncloud-python-sdk[cli]"
+```
+
+Without the extra, `mtncloud` prints an install hint to stderr and exits with
+code 2. Credentials come only from `MTN_CLOUD_TOKEN` (or
+`MTN_CLOUD_API_KEY`) or a `.env` file in the working directory. No option
+accepts a credential.
+
+```bash
+mtncloud instances list --group production --zone lagos-1
+mtncloud networks describe app-network --group production
+mtncloud inventory --only instances,routers -o json > inventory.json
+mtncloud version
+```
+
+- `mtncloud instances|networks|routers list [--group] [--zone] [--name]`
+- `mtncloud <resource> describe <id-or-name> [--group] [--zone]`. An argument
+  made only of digits is an ID and ignores `--group` and `--zone`. Anything
+  else must match one name exactly.
+- `mtncloud inventory [--only R1,R2] [--group] [--zone]`
+- `mtncloud version`
+
+Global options are `-o/--output json|table`, `--base-url`, `--timeout` and
+`--debug`. `-o` may go before the command or after it, and the value after the
+command wins. Running `mtncloud` with no arguments prints help and exits 0.
+
+The default format is `table` when stdout is a terminal and `json` when it is
+piped. Table cells are rendered literally. Instance and network `config`
+fields are excluded from output. Every command writes only its result to
+stdout. Diagnostics and errors go to stderr, and a failed command leaves
+stdout empty.
+
+JSON documents carry a versioned `schema`: `mtncloud.list/v1`,
+`mtncloud.describe/v1`, `mtncloud.inventory/v1`, `mtncloud.version/v1`, and
+`mtncloud.error/v1` for errors on stderr. Within a version, fields may be
+added but not removed or renamed.
+
+```json
+{
+  "schema": "mtncloud.list/v1",
+  "resource": "routers",
+  "count": 1,
+  "items": [{"id": 7, "name": "edge-router"}]
+}
+```
+
+`inventory` exits 0 when every section succeeds. If some sections fail, it
+exits 3 and prints the full document, with an `{"error": {...}}` entry in each
+failed section. If every section fails, stdout is empty and the first
+failure's error goes to stderr. A `--group` or `--zone` value that cannot be
+resolved fails the whole command.
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | Internal error |
+| 2 | Usage error, or the `[cli]` extra is not installed |
+| 3 | Partial result (`inventory` with some failed sections) |
+| 4 | Not found |
+| 5 | Ambiguous name (several matches) |
+| 6 | Authentication or permission, including missing credentials |
+| 7 | API or network failure |
+| 130 | Interrupted |
+
+Closing a pipe early, for example `mtncloud instances list | head`, exits 0
+quietly.
+
 ## Error handling
 
 Modern client operations raise exceptions from `mtn_cloud.modern_exceptions`:
