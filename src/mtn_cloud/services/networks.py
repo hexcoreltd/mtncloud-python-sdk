@@ -72,6 +72,8 @@ class NetworksService(Service[Network]):
         return True
 
     def list_subnets(self, network_id: int) -> List[Subnet]:
+        """List and validate subnets belonging to a network."""
+
         body = self._core.request("GET", f"{self.path}/{network_id}/subnets")
         if not isinstance(body, dict) or not isinstance(body.get("subnets"), list):
             raise MtnCloudError("Invalid subnet response: expected a 'subnets' list")
@@ -81,6 +83,30 @@ class NetworksService(Service[Network]):
                 f"Subnet discovery for network {network_id} returned a subnet with a different parent network"
             )
         return subnets
+
+    def get_subnet(self, network_id: int, subnet_id: int) -> Subnet:
+        """Return a subnet by ID, ensuring it belongs to the given network.
+
+        The current MTN Cloud contract exposes subnet discovery through the
+        parent network collection. This helper intentionally reuses that
+        verified read-only operation instead of assuming an undocumented
+        standalone subnet endpoint.
+        """
+
+        for subnet in self.list_subnets(network_id):
+            if subnet.id == subnet_id:
+                return subnet
+        raise ValueError(f"Subnet {subnet_id} was not found in network {network_id}")
+
+    def get_subnet_by_name(self, network_id: int, name: str) -> Subnet:
+        """Return a uniquely named subnet within a network."""
+
+        matches = [subnet for subnet in self.list_subnets(network_id) if subnet.name == name]
+        if not matches:
+            raise ValueError(f"Subnet '{name}' was not found in network {network_id}")
+        if len(matches) > 1:
+            raise ValueError(f"Subnet name '{name}' is ambiguous in network {network_id}")
+        return matches[0]
 
     def list_types(
         self,

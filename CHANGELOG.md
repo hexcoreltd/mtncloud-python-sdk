@@ -10,6 +10,8 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Typed read-only subnet lookup by ID and unique name within a parent network.
+
 - Modern typed router service with router discovery, external gateway options,
   MTN neutron-router creation/deletion, and readiness/deletion waiters.
 - Network type, IP pool, and pool-IP discovery methods.

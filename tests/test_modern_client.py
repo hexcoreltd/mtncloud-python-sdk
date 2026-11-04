@@ -396,6 +396,7 @@ def test_networks_service_lists_networks_and_subnets() -> None:
             200, {}, {"networks": [{"id": 50, "name": "ubuntu_net", "cidr": "10.0.0.0/24"}]}
         ),
         HttpResponse(200, {}, {"subnets": [{"id": 51, "cidr": "10.0.0.0/24"}]}),
+        HttpResponse(200, {}, {"subnets": [{"id": 51, "cidr": "10.0.0.0/24"}]}),
     ]
     client = MtnCloudClient(token="secret", transport=transport)
 
@@ -404,6 +405,31 @@ def test_networks_service_lists_networks_and_subnets() -> None:
 
     assert network.name == "ubuntu_net"
     assert subnets[0].id == 51
+    assert client.networks.get_subnet(50, 51).cidr == "10.0.0.0/24"
+
+
+def test_networks_service_resolves_subnet_by_name() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        200,
+        {},
+        {"subnets": [{"id": 51, "name": "private-subnet", "cidr": "10.0.0.0/24"}]},
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    subnet = client.networks.get_subnet_by_name(50, "private-subnet")
+
+    assert subnet.id == 51
+    assert transport.request.call_args.args[:2] == ("GET", "/networks/50/subnets")
+
+
+def test_networks_service_rejects_unknown_subnet() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(200, {}, {"subnets": [{"id": 51}]})
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(ValueError, match="Subnet 99 was not found"):
+        client.networks.get_subnet(50, 99)
 
 
 def test_networks_service_discovers_types_and_ip_pools() -> None:

@@ -129,6 +129,7 @@ They should not be hidden behind one ambiguous client abstraction.
 - High-level instance provisioning workflow
 - Provisioning dry-run resolution
 - Network and subnet discovery
+- Typed subnet lookup by ID and unique name within a parent network
 - Security groups and firewall rules
 - Network compatibility validation against zone, group, and resource pool
 - Router and external-network discovery plus lifecycle waiters
@@ -237,7 +238,9 @@ Implemented in the current development line:
 
 Still to implement and verify:
 
-- Subnets CRUD and IP allocation behavior
+- Subnets CRUD and IP allocation behavior (the current documentation describes
+  subnet creation as part of network creation but does not establish a
+  standalone mutation contract)
 - Standalone volume CRUD and attachment operations, once their API contract is
   verified
 - Standalone floating-IP allocation/association endpoints, if exposed by the
