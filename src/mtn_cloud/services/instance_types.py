@@ -33,7 +33,9 @@ class InstanceTypesService(Service[InstanceType]):
             "category": category,
             "featured": featured,
         }
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
     def list(self, **kwargs: Any) -> list[InstanceType]:
         return self.list_page(**kwargs).items

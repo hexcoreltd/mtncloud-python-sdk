@@ -1,10 +1,9 @@
 """Modern service for MTN Cloud service plans."""
 
-from typing import Any
+from typing import Any, List
 
 from mtn_cloud.models.plan import ServicePlan
-from mtn_cloud.modern_exceptions import MtnCloudError
-from mtn_cloud.modern_exceptions import NotFoundError
+from mtn_cloud.modern_exceptions import MtnCloudError, NotFoundError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -24,9 +23,11 @@ class PlansService(Service[ServicePlan]):
         name: str | None = None,
     ) -> Page[ServicePlan]:
         params: dict[str, Any] = {"max": limit, "offset": offset, "name": name}
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
-    def list(self, **kwargs: Any) -> list[ServicePlan]:
+    def list(self, **kwargs: Any) -> List[ServicePlan]:
         return self.list_page(**kwargs).items
 
     def get(self, plan_id: int) -> ServicePlan:
@@ -47,7 +48,7 @@ class PlansService(Service[ServicePlan]):
         layout_id: int,
         group_id: int,
         resource_pool_id: str | int,
-    ) -> list[ServicePlan]:
+    ) -> List[ServicePlan]:
         """List plans scoped to a tenant's actual provisioning context."""
 
         resource_pool = str(resource_pool_id)

@@ -2,10 +2,10 @@
 
 from typing import Any
 
+from mtn_cloud.core import CoreClient
 from mtn_cloud.models.resource_pool import ResourcePool
 from mtn_cloud.modern_exceptions import NotFoundError
 from mtn_cloud.services.base import Page
-from mtn_cloud.core import CoreClient
 
 
 class ResourcePoolsService:

@@ -27,6 +27,11 @@ would normally require a major release in a mature stable SDK.
 - Modern S3-compatible storage-bucket configuration CRUD.
 - Modern read-only provisioned-application discovery at `/apps`.
 
+### Changed
+
+- Hardened the request and service layers for strict static type checking.
+- Standardized repository formatting and lint compliance for CI quality gates.
+
 ### Planned
 
 - Expand coverage for additional MTN Cloud resources and lifecycle operations.

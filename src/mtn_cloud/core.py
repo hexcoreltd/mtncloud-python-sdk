@@ -1,7 +1,7 @@
 """Core client behavior shared by service clients."""
 
-from collections.abc import Mapping
 import time
+from collections.abc import Mapping
 from typing import Any
 
 import requests
@@ -88,7 +88,7 @@ class CoreClient:
                 return max(0.0, float(retry_after))
             except ValueError:
                 pass
-        return self.settings.retry_delay * (2**attempt)
+        return float(self.settings.retry_delay * (2**attempt))
 
     @staticmethod
     def _raise_for_status(response: HttpResponse) -> None:
@@ -96,7 +96,7 @@ class CoreClient:
             return
 
         message = CoreClient._message(response.body)
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "status_code": response.status_code,
             "response": response.body if isinstance(response.body, dict) else None,
             "request_id": response.request_id,

@@ -2,7 +2,6 @@
 
 from typing import Any, List
 
-from mtn_cloud.core import CoreClient
 from mtn_cloud.models.volume import StorageVolume, StorageVolumeType
 from mtn_cloud.modern_exceptions import MtnCloudError
 from mtn_cloud.services.base import Page, Service
@@ -34,7 +33,9 @@ class VolumesService(Service[StorageVolume]):
             "instanceId": instance_id,
             "zoneId": zone_id,
         }
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
     def list(self, **kwargs: Any) -> List[StorageVolume]:
         return self.list_page(**kwargs).items

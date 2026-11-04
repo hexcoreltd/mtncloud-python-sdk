@@ -1,8 +1,7 @@
 """Modern service for MTN Cloud security groups and rules."""
 
-from typing import Any
+from typing import Any, List
 
-from mtn_cloud.core import CoreClient
 from mtn_cloud.models.security_group import (
     SecurityGroup,
     SecurityGroupCreate,
@@ -31,9 +30,11 @@ class SecurityGroupsService(Service[SecurityGroup]):
         name: str | None = None,
     ) -> Page[SecurityGroup]:
         params = {"max": limit, "offset": offset, "name": name}
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
-    def list(self, **kwargs: Any) -> list[SecurityGroup]:
+    def list(self, **kwargs: Any) -> List[SecurityGroup]:
         return self.list_page(**kwargs).items
 
     def get(self, security_group_id: int) -> SecurityGroup:
@@ -63,11 +64,13 @@ class SecurityGroupsService(Service[SecurityGroup]):
         self._core.request("DELETE", f"{self.path}/{security_group_id}")
         return True
 
-    def list_rules(self, security_group_id: int) -> list[SecurityGroupRule]:
+    def list_rules(self, security_group_id: int) -> List[SecurityGroupRule]:
         group = self.get(security_group_id)
         return group.rules
 
-    def create_rule(self, security_group_id: int, request: SecurityGroupRuleCreate) -> SecurityGroupRule:
+    def create_rule(
+        self, security_group_id: int, request: SecurityGroupRuleCreate
+    ) -> SecurityGroupRule:
         body = self._core.request(
             "POST",
             f"{self.path}/{security_group_id}/rules",

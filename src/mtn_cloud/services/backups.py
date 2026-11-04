@@ -2,7 +2,6 @@
 
 from typing import Any, List
 
-from mtn_cloud.core import CoreClient
 from mtn_cloud.models.backup import Backup, BackupJob, BackupResult
 from mtn_cloud.modern_exceptions import MtnCloudError
 from mtn_cloud.services.base import Page, Service
@@ -24,7 +23,9 @@ class BackupsService(Service[Backup]):
         phrase: str | None = None,
     ) -> Page[Backup]:
         params = {"max": limit, "offset": offset, "phrase": phrase}
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
     def list(self, **kwargs: Any) -> List[Backup]:
         return self.list_page(**kwargs).items

@@ -131,8 +131,20 @@ They should not be hidden behind one ambiguous client abstraction.
 - Network and subnet discovery
 - Security groups and firewall rules
 - Network compatibility validation against zone, group, and resource pool
+- Router and external-network discovery plus lifecycle waiters
+- Snapshot and backup discovery and lifecycle operations
+- Storage volume and volume-type discovery
+- S3-compatible storage bucket configuration CRUD
+- Provisioned-application discovery
 - Unit tests and guarded live contract tests
 - `uv` project, package builds, release workflow, and trusted publishing setup
+
+### Quality baseline completed
+
+- Strict mypy validation passes across the modern and legacy source tree.
+- Ruff formatting and lint checks pass in local and CI environments.
+- Unit tests and package builds remain green after the typing and formatting
+  hardening work.
 
 ### Existing legacy surface
 

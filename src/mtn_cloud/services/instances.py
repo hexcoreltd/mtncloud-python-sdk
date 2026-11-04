@@ -2,9 +2,11 @@
 
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, List, cast
 
 from mtn_cloud.core import CoreClient
+from mtn_cloud.models.cloud import Cloud
+from mtn_cloud.models.group import Group
 from mtn_cloud.models.instance import (
     Instance,
     InstanceCreate,
@@ -12,17 +14,15 @@ from mtn_cloud.models.instance import (
     InstanceUpdate,
     InstanceVolume,
 )
-from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
-from mtn_cloud.models.group import Group
-from mtn_cloud.models.cloud import Cloud
 from mtn_cloud.models.plan import ServicePlan
+from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
 from mtn_cloud.modern_exceptions import MtnCloudError, TimeoutError
 from mtn_cloud.services.base import Page, Service
 from mtn_cloud.services.groups import GroupsService
 from mtn_cloud.services.instance_types import InstanceTypesService
+from mtn_cloud.services.networks import NetworksService
 from mtn_cloud.services.plans import PlansService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
-from mtn_cloud.services.networks import NetworksService
 from mtn_cloud.services.zones import ZonesService
 
 
@@ -75,9 +75,11 @@ class InstancesService(Service[Instance]):
             "zoneId": zone_id,
             "siteId": group_id,
         }
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
-    def list(self, **kwargs: Any) -> list[Instance]:
+    def list(self, **kwargs: Any) -> List[Instance]:
         return self.list_page(**kwargs).items
 
     def get(self, instance_id: int) -> Instance:
@@ -88,7 +90,9 @@ class InstancesService(Service[Instance]):
         return self._parse_item(body)
 
     def update(self, instance_id: int, request: InstanceUpdate) -> Instance:
-        body = self._core.request("PUT", f"{self.path}/{instance_id}", json=request.to_api_payload())
+        body = self._core.request(
+            "PUT", f"{self.path}/{instance_id}", json=request.to_api_payload()
+        )
         return self._parse_item(body)
 
     def delete(
@@ -193,7 +197,7 @@ class InstancesService(Service[Instance]):
             on_status=on_status,
         )
 
-    def list_snapshots(self, instance_id: int) -> list[Snapshot]:
+    def list_snapshots(self, instance_id: int) -> List[Snapshot]:
         """List snapshots belonging to an instance."""
 
         body = self._core.request("GET", f"{self.path}/{instance_id}/snapshots")
@@ -244,7 +248,7 @@ class InstancesService(Service[Instance]):
         poll_interval: float = 10,
         dry_run: bool = False,
         description: str | None = None,
-        labels: list[str] | None = None,
+        labels: List[str] | None = None,
         tags: dict[str, str] | None = None,
         security_group: str = "default",
         create_user: bool = True,
@@ -265,7 +269,17 @@ class InstancesService(Service[Instance]):
         )
         if any(service is None for service in services):
             raise RuntimeError("InstancesService provisioning dependencies are not configured")
-        groups, zones, instance_types, plans, resource_pools, networks = services
+        groups, zones, instance_types, plans, resource_pools, networks = cast(
+            tuple[
+                GroupsService,
+                ZonesService,
+                InstanceTypesService,
+                PlansService,
+                ResourcePoolsService,
+                NetworksService,
+            ],
+            services,
+        )
 
         group_model = groups.get(group) if isinstance(group, int) else groups.get_by_name(group)
         zone_model = self._resolve_zone(group_model, zone, zones)
@@ -368,11 +382,17 @@ class InstancesService(Service[Instance]):
                 return int(layout)
             match = instance_type.get_layout_by_name(layout)
             if match is not None:
-                return match.id
-            raise ValueError(f"Layout '{layout}' not found for instance type '{instance_type.code}'")
-        if instance_type.default_layout_id is None:
+                layout_id: object = match.id
+                if type(layout_id) is int:
+                    return layout_id
+                raise ValueError(f"Layout '{layout}' has an invalid identifier")
+            raise ValueError(
+                f"Layout '{layout}' not found for instance type '{instance_type.code}'"
+            )
+        default_layout_id: object = instance_type.default_layout_id
+        if type(default_layout_id) is not int:
             raise ValueError(f"Instance type '{instance_type.code}' has no available layout")
-        return instance_type.default_layout_id
+        return default_layout_id
 
     @staticmethod
     def _resolve_plan(

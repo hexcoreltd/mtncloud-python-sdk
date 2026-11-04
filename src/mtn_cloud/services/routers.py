@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 import time
+from collections.abc import Callable
 from typing import Any, List
 
 from mtn_cloud.core import CoreClient
@@ -47,7 +47,9 @@ class RoutersService(Service[Router]):
             "zoneId": zone_id,
             "siteId": group_id,
         }
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
     def list(self, **kwargs: Any) -> List[Router]:
         return self.list_page(**kwargs).items
@@ -137,7 +139,11 @@ class RoutersService(Service[Router]):
         if type(router_id) is not int or router_id <= 0:
             raise MtnCloudError("Router creation did not return a valid ID", response=body)
         router = self.get(router_id)
-        return self.wait_until_ready(router.id, timeout=timeout, poll_interval=poll_interval) if wait else router
+        return (
+            self.wait_until_ready(router.id, timeout=timeout, poll_interval=poll_interval)
+            if wait
+            else router
+        )
 
     def delete(self, router_id: int) -> bool:
         """Delete an MTN neutron router."""

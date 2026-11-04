@@ -55,9 +55,7 @@ class ClientSettings(BaseSettings):
     def validate_user_agent(cls, value: str) -> str:
         value = value.strip()
         if not value or "\r" in value or "\n" in value:
-            raise ValueError(
-                "user_agent must be non-empty and cannot contain line breaks"
-            )
+            raise ValueError("user_agent must be non-empty and cannot contain line breaks")
         return value
 
     @property

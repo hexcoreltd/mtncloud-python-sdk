@@ -2,7 +2,6 @@
 
 from typing import Any, List
 
-from mtn_cloud.core import CoreClient
 from mtn_cloud.models.network import (
     Network,
     NetworkCreate,
@@ -40,7 +39,9 @@ class NetworksService(Service[Network]):
             "zoneId": zone_id,
             "siteId": group_id,
         }
-        return self._list_page(params={key: value for key, value in params.items() if value is not None})
+        return self._list_page(
+            params={key: value for key, value in params.items() if value is not None}
+        )
 
     def list(self, **kwargs: Any) -> List[Network]:
         return self.list_page(**kwargs).items

@@ -4,13 +4,13 @@ import pytest
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
-from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
-from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.models.network import NetworkCreate, NetworkUpdate
+from mtn_cloud.models.router import RouterCreate
+from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
 from mtn_cloud.models.snapshot import SnapshotCreate
 from mtn_cloud.models.storage_bucket import StorageBucketCreate, StorageBucketUpdate
+from mtn_cloud.modern_exceptions import AuthenticationError, MtnCloudError
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
-from mtn_cloud.modern_exceptions import AuthenticationError
 from mtn_cloud.transport import HttpResponse
 
 
@@ -93,7 +93,7 @@ def test_mutating_requests_are_not_automatically_retried() -> None:
     transport.request.return_value = HttpResponse(503, {}, {"message": "busy"})
     client = MtnCloudClient(token="secret", transport=transport)
 
-    with pytest.raises(Exception):
+    with pytest.raises(MtnCloudError):
         client._core.request("POST", "/instances", json={"name": "demo"})
 
     transport.request.assert_called_once()
@@ -116,7 +116,11 @@ def test_zones_service_parses_typed_pages() -> None:
     assert page.items[0].name == "MTNNG_CLOUD_AZ_1"
     assert page.total == 1
     assert page.has_more is False
-    assert transport.request.call_args.kwargs["params"] == {"max": 25, "offset": 0, "type": "openstack"}
+    assert transport.request.call_args.kwargs["params"] == {
+        "max": 25,
+        "offset": 0,
+        "type": "openstack",
+    }
 
 
 def test_groups_service_gets_wrapped_resource() -> None:
@@ -164,11 +168,7 @@ def test_plans_service_parses_resource_sizes() -> None:
     transport.request.return_value = HttpResponse(
         200,
         {},
-        {
-            "servicePlans": [
-                {"id": 30, "name": "small", "maxCores": 2, "maxMemory": 4294967296}
-            ]
-        },
+        {"servicePlans": [{"id": 30, "name": "small", "maxCores": 2, "maxMemory": 4294967296}]},
     )
     client = MtnCloudClient(token="secret", transport=transport)
 
@@ -322,11 +322,47 @@ def test_instances_service_waiter_raises_typed_timeout() -> None:
 def test_instance_provision_dry_run_resolves_dependencies() -> None:
     transport = Mock()
     transport.request.side_effect = [
-        HttpResponse(200, {}, {"groups": [{"id": 621, "name": "project-a", "zones": [{"id": 4, "name": "MTNNG_CLOUD_AZ_1"}]}]}),
-        HttpResponse(200, {}, {"instanceTypes": [{"id": 10, "name": "Ubuntu", "code": "ubuntu", "instanceTypeLayouts": [{"id": 20, "name": "default"}]}]}),
+        HttpResponse(
+            200,
+            {},
+            {
+                "groups": [
+                    {
+                        "id": 621,
+                        "name": "project-a",
+                        "zones": [{"id": 4, "name": "MTNNG_CLOUD_AZ_1"}],
+                    }
+                ]
+            },
+        ),
+        HttpResponse(
+            200,
+            {},
+            {
+                "instanceTypes": [
+                    {
+                        "id": 10,
+                        "name": "Ubuntu",
+                        "code": "ubuntu",
+                        "instanceTypeLayouts": [{"id": 20, "name": "default"}],
+                    }
+                ]
+            },
+        ),
         HttpResponse(200, {}, {"data": [{"id": 214, "value": "pool-214", "name": "project-a"}]}),
         HttpResponse(200, {}, {"plans": [{"id": 30, "name": "small"}]}),
-        HttpResponse(200, {}, {"network": {"id": 50, "zone": {"id": 4}, "group": {"id": 621}, "zonePool": {"id": 214}}}),
+        HttpResponse(
+            200,
+            {},
+            {
+                "network": {
+                    "id": 50,
+                    "zone": {"id": 4},
+                    "group": {"id": 621},
+                    "zonePool": {"id": 214},
+                }
+            },
+        ),
     ]
     client = MtnCloudClient(token="secret", transport=transport)
 
@@ -356,7 +392,9 @@ def test_instance_provision_dry_run_resolves_dependencies() -> None:
 def test_networks_service_lists_networks_and_subnets() -> None:
     transport = Mock()
     transport.request.side_effect = [
-        HttpResponse(200, {}, {"networks": [{"id": 50, "name": "ubuntu_net", "cidr": "10.0.0.0/24"}]}),
+        HttpResponse(
+            200, {}, {"networks": [{"id": 50, "name": "ubuntu_net", "cidr": "10.0.0.0/24"}]}
+        ),
         HttpResponse(200, {}, {"subnets": [{"id": 51, "cidr": "10.0.0.0/24"}]}),
     ]
     client = MtnCloudClient(token="secret", transport=transport)
@@ -371,7 +409,11 @@ def test_networks_service_lists_networks_and_subnets() -> None:
 def test_networks_service_discovers_types_and_ip_pools() -> None:
     transport = Mock()
     transport.request.side_effect = [
-        HttpResponse(200, {}, {"networkTypes": [{"id": 4, "code": "openstackPrivate", "category": "OpenStack"}]}),
+        HttpResponse(
+            200,
+            {},
+            {"networkTypes": [{"id": 4, "code": "openstackPrivate", "category": "OpenStack"}]},
+        ),
         HttpResponse(200, {}, {"networkPools": [{"id": 8, "name": "private-pool", "ipCount": 10}]}),
         HttpResponse(200, {}, {"networkPoolIps": [{"id": 9, "ipAddress": "10.0.0.10"}]}),
     ]
@@ -481,7 +523,9 @@ def test_routers_service_creates_and_reads_router() -> None:
     assert router.id == 99
     assert router.status == "ok"
     assert transport.request.call_args_list[0].args[:2] == ("POST", "/networks/routers")
-    assert transport.request.call_args_list[0].kwargs["json"]["networkRouter"]["poolId"] == "pool-214"
+    assert (
+        transport.request.call_args_list[0].kwargs["json"]["networkRouter"]["poolId"] == "pool-214"
+    )
 
 
 def test_instances_service_manages_snapshots() -> None:
@@ -540,7 +584,9 @@ def test_volumes_service_discovers_and_filters_attached_volumes() -> None:
                 "meta": {"offset": 0, "max": 10, "total": 1},
             },
         ),
-        HttpResponse(200, {}, {"storageVolume": {"id": 9450, "name": "root", "status": "provisioned"}}),
+        HttpResponse(
+            200, {}, {"storageVolume": {"id": 9450, "name": "root", "status": "provisioned"}}
+        ),
     ]
     client = MtnCloudClient(token="secret", transport=transport)
 
@@ -581,7 +627,9 @@ def test_volumes_service_discovers_enabled_volume_types() -> None:
 def test_storage_buckets_service_manages_s3_provider_configuration() -> None:
     transport = Mock()
     transport.request.side_effect = [
-        HttpResponse(201, {}, {"storageBucket": {"id": 110, "name": "backups", "providerType": "s3"}}),
+        HttpResponse(
+            201, {}, {"storageBucket": {"id": 110, "name": "backups", "providerType": "s3"}}
+        ),
         HttpResponse(200, {}, {"storageBucket": {"id": 110, "name": "backups-renamed"}}),
         HttpResponse(204, {}, None),
     ]
@@ -604,7 +652,10 @@ def test_storage_buckets_service_manages_s3_provider_configuration() -> None:
 
     assert bucket.is_s3 is True
     assert renamed.name == "backups-renamed"
-    assert transport.request.call_args_list[0].kwargs["json"]["storageBucket"]["bucketName"] == "hexcore-backups"
+    assert (
+        transport.request.call_args_list[0].kwargs["json"]["storageBucket"]["bucketName"]
+        == "hexcore-backups"
+    )
     assert transport.request.call_args_list[2].kwargs["params"] is None
 
 
@@ -615,7 +666,9 @@ def test_applications_service_discovers_catalog_deployments() -> None:
             200,
             {},
             {
-                "apps": [{"id": 120, "name": "managed-db", "status": "running", "type": "database"}],
+                "apps": [
+                    {"id": 120, "name": "managed-db", "status": "running", "type": "database"}
+                ],
                 "meta": {"offset": 0, "max": 10, "total": 1},
             },
         ),

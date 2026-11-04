@@ -50,7 +50,7 @@ class Service(Generic[T]):
 
         meta = body.get("meta")
         meta = meta if isinstance(meta, Mapping) else {}
-        offset = self._integer(meta.get("offset"), default=0)
+        offset = self._integer(meta.get("offset"), default=0) or 0
         limit = self._integer(meta.get("max") or meta.get("limit"))
         total = self._integer(meta.get("total") or meta.get("size"))
         return Page(
