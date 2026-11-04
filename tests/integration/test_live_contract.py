@@ -155,7 +155,7 @@ def test_live_cli_inventory(
     from mtn_cloud.cli import main
 
     code = main(["inventory", "-o", "json"])
+    assert code in {0, 3}
     document = json.loads(capsys.readouterr().out)
 
-    assert code in {0, 3}
     assert document["schema"] == "mtncloud.inventory/v1"
