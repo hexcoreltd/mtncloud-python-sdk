@@ -192,6 +192,20 @@ class NetworksService(Service[Network]):
             raise MtnCloudError("Invalid network-pool IP response")
         return [NetworkPoolIp.model_validate(item) for item in body["networkPoolIps"]]
 
+    def get_pool_ip(self, pool_id: int, ip_address: str) -> NetworkPoolIp:
+        """Return one pool address by its exact IP address."""
+
+        matches = [
+            item
+            for item in self.list_pool_ips(pool_id, ip_address=ip_address)
+            if item.ip_address == ip_address
+        ]
+        if not matches:
+            raise ValueError(f"IP address '{ip_address}' was not found in pool {pool_id}")
+        if len(matches) > 1:
+            raise ValueError(f"IP address '{ip_address}' is ambiguous in pool {pool_id}")
+        return matches[0]
+
     @staticmethod
     def _parse_item(body: Any) -> Network:
         if not isinstance(body, dict):

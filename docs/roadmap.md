@@ -130,6 +130,7 @@ They should not be hidden behind one ambiguous client abstraction.
 - Provisioning dry-run resolution
 - Network and subnet discovery
 - Typed subnet lookup by ID and unique name within a parent network
+- Typed network-pool IP lookup by exact address
 - Security groups and firewall rules
 - Network compatibility validation against zone, group, and resource pool
 - Router and external-network discovery plus lifecycle waiters

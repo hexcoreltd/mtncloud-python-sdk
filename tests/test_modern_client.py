@@ -454,6 +454,21 @@ def test_networks_service_discovers_types_and_ip_pools() -> None:
     assert pool_ip.ip_address == "10.0.0.10"
 
 
+def test_networks_service_resolves_pool_ip_by_address() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        200,
+        {},
+        {"networkPoolIps": [{"id": 9, "ipAddress": "10.0.0.10", "active": True}]},
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    pool_ip = client.networks.get_pool_ip(8, "10.0.0.10")
+
+    assert pool_ip.id == 9
+    assert transport.request.call_args.kwargs["params"] == {"ipAddress": "10.0.0.10"}
+
+
 def test_networks_service_creates_updates_and_deletes_networks() -> None:
     transport = Mock()
     transport.request.side_effect = [
