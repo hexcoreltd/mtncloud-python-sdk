@@ -201,7 +201,21 @@ Status: **in progress / foundation released**
 
 ### Milestone 1 — Networking foundation
 
-Priority: **next major implementation milestone**
+Priority: **current implementation milestone**
+
+Progress: **partially implemented**
+
+Implemented in the current development line:
+
+- Modern network type discovery
+- Network IP-pool and pool-IP discovery
+- Parent-network validation for subnet discovery
+- Modern router listing and retrieval
+- External gateway discovery
+- MTN neutron-router creation and deletion
+- Router readiness and deletion waiters
+
+Still to implement and verify:
 
 - Modern networks CRUD
 - Subnets CRUD and IP allocation behavior

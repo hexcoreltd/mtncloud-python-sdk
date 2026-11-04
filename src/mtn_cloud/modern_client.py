@@ -12,6 +12,7 @@ from mtn_cloud.services.instances import InstancesService
 from mtn_cloud.services.networks import NetworksService
 from mtn_cloud.services.plans import PlansService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
+from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
 from mtn_cloud.services.zones import ZonesService
 from mtn_cloud.settings import ClientSettings
@@ -55,6 +56,7 @@ class MtnCloudClient:
         self._plans: PlansService | None = None
         self._resource_pools: ResourcePoolsService | None = None
         self._security_groups: SecurityGroupsService | None = None
+        self._routers: RoutersService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -133,6 +135,18 @@ class MtnCloudClient:
         if self._security_groups is None:
             self._security_groups = SecurityGroupsService(self._core)
         return self._security_groups
+
+    @property
+    def routers(self) -> RoutersService:
+        """Access tenant routers and external gateway options."""
+
+        if self._routers is None:
+            self._routers = RoutersService(
+                self._core,
+                sleeper=self._sleeper,
+                clock=self._clock,
+            )
+        return self._routers
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

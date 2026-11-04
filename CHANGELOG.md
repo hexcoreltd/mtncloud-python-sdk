@@ -8,6 +8,13 @@ would normally require a major release in a mature stable SDK.
 
 ## [Unreleased]
 
+### Added
+
+- Modern typed router service with router discovery, external gateway options,
+  MTN neutron-router creation/deletion, and readiness/deletion waiters.
+- Network type, IP pool, and pool-IP discovery methods.
+- Parent-network validation for subnet discovery.
+
 ### Planned
 
 - Expand coverage for additional MTN Cloud resources and lifecycle operations.

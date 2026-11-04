@@ -159,6 +159,7 @@ The current modern service surface is:
 | `cloud.resource_pools` | Discover compatible placement pools |
 | `cloud.instances` | List, create, update, delete, and operate instances |
 | `cloud.networks` | List networks and subnets |
+| `cloud.routers` | Discover external gateways and manage MTN routers |
 | `cloud.security_groups` | Manage security groups and firewall rules |
 
 Some MTN Cloud endpoints are permission-scoped. A valid credential may be

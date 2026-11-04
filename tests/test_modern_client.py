@@ -5,6 +5,7 @@ import pytest
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
 from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
+from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
 from mtn_cloud.modern_exceptions import AuthenticationError
 from mtn_cloud.transport import HttpResponse
@@ -360,6 +361,86 @@ def test_networks_service_lists_networks_and_subnets() -> None:
 
     assert network.name == "ubuntu_net"
     assert subnets[0].id == 51
+
+
+def test_networks_service_discovers_types_and_ip_pools() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(200, {}, {"networkTypes": [{"id": 4, "code": "openstackPrivate", "category": "OpenStack"}]}),
+        HttpResponse(200, {}, {"networkPools": [{"id": 8, "name": "private-pool", "ipCount": 10}]}),
+        HttpResponse(200, {}, {"networkPoolIps": [{"id": 9, "ipAddress": "10.0.0.10"}]}),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    network_type = client.networks.list_types(openstack_only=True)[0]
+    pool = client.networks.list_pools()[0]
+    pool_ip = client.networks.list_pool_ips(pool.id)[0]
+
+    assert network_type.is_openstack is True
+    assert pool.name == "private-pool"
+    assert pool_ip.ip_address == "10.0.0.10"
+
+
+def test_routers_service_lists_external_networks() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        200,
+        {},
+        {"success": True, "data": [{"value": 77, "name": "public-gateway"}]},
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    external = client.routers.list_external_networks(
+        zone_id=4,
+        group_id=621,
+        resource_pool_code="pool-214",
+        router_type_id=55,
+    )[0]
+
+    assert external.id == 77
+    assert external.name == "public-gateway"
+    assert transport.request.call_args.kwargs["params"] == {
+        "router.zone.id": 4,
+        "router.site.id": 621,
+        "router.poolId": "pool-214",
+        "routerType.id": 55,
+    }
+
+
+def test_routers_service_creates_and_reads_router() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(200, {}, {"success": True, "id": 99}),
+        HttpResponse(
+            200,
+            {},
+            {
+                "networkRouter": {
+                    "id": 99,
+                    "name": "edge-router",
+                    "status": "ok",
+                    "type": {"id": 55, "code": "neutronRouter"},
+                }
+            },
+        ),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    router = client.routers.create(
+        RouterCreate(
+            name="edge-router",
+            group_id=621,
+            cloud_id=4,
+            resource_pool_id=214,
+            internal_subnet_ids=[51],
+        ),
+        router_type_id=55,
+    )
+
+    assert router.id == 99
+    assert router.status == "ok"
+    assert transport.request.call_args_list[0].args[:2] == ("POST", "/networks/routers")
+    assert transport.request.call_args_list[0].kwargs["json"]["networkRouter"]["poolId"] == "pool-214"
 
 
 def test_security_groups_service_manages_groups_and_rules() -> None:
