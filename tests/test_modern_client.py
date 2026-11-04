@@ -1,7 +1,9 @@
+import copy
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
@@ -11,12 +13,15 @@ from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRu
 from mtn_cloud.models.snapshot import SnapshotCreate
 from mtn_cloud.models.storage_bucket import StorageBucketCreate, StorageBucketUpdate
 from mtn_cloud.modern_exceptions import (
+    AmbiguousLookupError,
     AuthenticationError,
     ConflictError,
     ForbiddenError,
     LookupNotFoundError,
     MtnCloudError,
     NotFoundError,
+    ServerError,
+    TransportError,
 )
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
 from mtn_cloud.services.instances import InstancesService
@@ -914,3 +919,316 @@ def test_provisioning_rejects_unknown_layout_name_as_not_found() -> None:
 
     with pytest.raises(LookupNotFoundError, match="Layout 'missing' not found"):
         InstancesService._resolve_layout(instance_type, "missing")
+
+
+def test_http_errors_carry_operation_metadata() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        404, {}, {"message": "missing"}, request_id="req-404"
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(NotFoundError) as raised:
+        client.instances.get(5)
+
+    error = raised.value
+    assert (error.method, error.path, error.attempts) == ("GET", "/instances/5", 1)
+    assert str(error) == "missing (HTTP 404) [GET /instances/5, request_id=req-404]"
+
+
+def test_retried_errors_report_attempt_count() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(503, {}, {"message": "busy"})
+    client = MtnCloudClient(
+        settings=ClientSettings(token="secret", max_retries=2, retry_delay=0),
+        transport=transport,
+        sleeper=Mock(),
+    )
+
+    with pytest.raises(ServerError) as raised:
+        client.whoami()
+
+    assert raised.value.attempts == 3
+    assert str(raised.value) == "busy (HTTP 503) [GET /whoami, attempts=3]"
+
+
+def test_transport_errors_carry_operation_metadata() -> None:
+    transport = Mock()
+    transport.request.side_effect = requests.exceptions.ConnectTimeout("slow")
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(TransportError) as raised:
+        client._core.request("post", "/instances", json={"name": "demo"})
+
+    error = raised.value
+    assert (error.method, error.path, error.attempts) == ("POST", "/instances", 1)
+    assert error.status_code is None
+    assert str(error).endswith("[POST /instances]")
+
+
+def test_error_metadata_never_includes_query_string_or_credentials() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(400, {}, {"message": "bad"})
+    client = MtnCloudClient(token="secret-token", transport=transport)
+
+    with pytest.raises(MtnCloudError) as raised:
+        client._core.request("GET", "/instances?name=private", params={"phrase": "private"})
+
+    assert raised.value.path == "/instances"
+    assert "private" not in str(raised.value)
+    assert "secret-token" not in str(raised.value)
+
+
+def test_error_format_is_unchanged_without_operation_metadata() -> None:
+    error = MtnCloudError("failed", status_code=500, request_id="req-1")
+
+    assert (error.method, error.path, error.attempts) == (None, None, None)
+    assert str(error) == "failed (HTTP 500) [request_id=req-1]"
+
+
+def test_connection_errors_do_not_leak_urls_into_messages() -> None:
+    transport = Mock()
+    cause = requests.exceptions.ConnectionError(
+        "HTTPSConnectionPool(host='console.cloud.mtn.ng'): url: /api/instances?name=private"
+    )
+    transport.request.side_effect = cause
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(TransportError) as raised:
+        client._core.request("GET", "/instances", params={"name": "private"})
+
+    assert "private" not in str(raised.value)
+    assert str(raised.value) == "Request to /instances failed: ConnectionError [GET /instances]"
+    # The original exception stays attached for debugging.
+    assert raised.value.__cause__ is cause
+
+
+def test_transport_error_after_retry_reports_attempt_count() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(503, {}, {"message": "busy"}),
+        requests.exceptions.ConnectionError("reset"),
+    ]
+    client = MtnCloudClient(
+        settings=ClientSettings(token="secret", max_retries=2, retry_delay=0),
+        transport=transport,
+        sleeper=Mock(),
+    )
+
+    with pytest.raises(TransportError) as raised:
+        client.whoami()
+
+    assert raised.value.attempts == 2
+
+
+def test_authentication_errors_normalize_method_and_carry_metadata() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(401, {}, {"message": "invalid token"})
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(AuthenticationError) as raised:
+        client._core.request("delete", "/instances/5")
+
+    assert (raised.value.method, raised.value.path, raised.value.attempts) == (
+        "DELETE",
+        "/instances/5",
+        1,
+    )
+
+
+def _modern_error_classes() -> list[type[MtnCloudError]]:
+    import inspect
+
+    from mtn_cloud import modern_exceptions
+
+    return [
+        cls
+        for _, cls in inspect.getmembers(modern_exceptions, inspect.isclass)
+        if issubclass(cls, MtnCloudError)
+    ]
+
+
+@pytest.mark.parametrize("error_type", _modern_error_classes(), ids=lambda cls: cls.__name__)
+def test_modern_errors_survive_pickling(error_type: type[MtnCloudError]) -> None:
+    import pickle
+
+    extra: dict[str, Any] = {"timeout": 30.0} if error_type is ModernTimeoutError else {}
+    error = error_type(
+        "failed",
+        status_code=503,
+        response={"message": "failed"},
+        request_id="req-1",
+        method="GET",
+        path="/whoami",
+        attempts=2,
+        **extra,
+    )
+
+    restored = pickle.loads(pickle.dumps(error))
+
+    assert type(restored) is error_type
+    assert restored.__dict__ == error.__dict__
+    assert restored.args == error.args
+    assert str(restored) == str(error)
+
+    copied = copy.deepcopy(error)
+    assert type(copied) is error_type
+    assert copied.__dict__ == error.__dict__
+    assert copied.response is not error.response
+
+
+def _instances_response(ids: list[int], **meta: Any) -> HttpResponse:
+    body: dict[str, Any] = {"instances": [{"id": item} for item in ids]}
+    if meta:
+        body["meta"] = meta
+    return HttpResponse(200, {}, body)
+
+
+def test_list_all_follows_pages_until_total() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _instances_response([1, 2], total=3),
+        _instances_response([3], total=3),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    instances = client.instances.list_all(page_size=2)
+
+    assert [item.id for item in instances] == [1, 2, 3]
+    assert transport.request.call_count == 2
+    second_params = transport.request.call_args_list[1].kwargs["params"]
+    assert second_params["offset"] == 2
+    assert second_params["max"] == 2
+
+
+def test_list_all_stops_on_short_page_without_total() -> None:
+    transport = Mock()
+    transport.request.return_value = _instances_response([1])
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    instances = client.instances.list_all(page_size=2)
+
+    assert [item.id for item in instances] == [1]
+    assert transport.request.call_count == 1
+
+
+def test_list_all_stops_on_empty_page() -> None:
+    transport = Mock()
+    transport.request.return_value = _instances_response([], total=10)
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    assert client.instances.list_all(page_size=2) == []
+    assert transport.request.call_count == 1
+
+
+def test_list_all_stops_when_api_ignores_offset() -> None:
+    transport = Mock()
+    transport.request.return_value = _instances_response([1, 2], offset=0, total=4)
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    instances = client.instances.list_all(page_size=2)
+
+    assert len(instances) == 4
+    assert transport.request.call_count == 2
+
+
+def test_list_all_passes_filters_to_every_page() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _instances_response([1, 2], total=3),
+        _instances_response([3], total=3),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    client.instances.list_all(page_size=2, zone_id=4)
+
+    for call in transport.request.call_args_list:
+        assert call.kwargs["params"]["zoneId"] == 4
+
+
+def test_list_all_propagates_mid_pagination_errors() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _instances_response([1, 2], total=5),
+        HttpResponse(503, {}, {"message": "unavailable"}),
+    ]
+    client = MtnCloudClient(
+        settings=ClientSettings(token="secret", max_retries=0), transport=transport
+    )
+
+    with pytest.raises(ServerError):
+        client.instances.list_all(page_size=2)
+
+
+def test_list_all_rejects_invalid_page_size() -> None:
+    client = MtnCloudClient(token="secret", transport=Mock())
+
+    with pytest.raises(ValueError):
+        client.instances.list_all(page_size=0)
+
+
+_NAME_LOOKUP_CASES = [
+    ("instances", "instances"),
+    ("networks", "networks"),
+    ("routers", "networkRouters"),
+]
+
+
+def _named_response(list_key: str, items: list[dict[str, Any]]) -> HttpResponse:
+    return HttpResponse(200, {}, {list_key: items})
+
+
+@pytest.mark.parametrize(("service", "list_key"), _NAME_LOOKUP_CASES)
+def test_get_by_name_returns_exact_match(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(
+        list_key, [{"id": 1, "name": "web"}, {"id": 2, "name": "web-2"}]
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    result = getattr(client, service).get_by_name("web", zone_id=4, group_id=7)
+
+    assert result.id == 1
+    params = transport.request.call_args.kwargs["params"]
+    assert params["name"] == "web"
+    assert params["zoneId"] == 4
+    assert params["siteId"] == 7
+
+
+@pytest.mark.parametrize(("service", "list_key"), _NAME_LOOKUP_CASES)
+def test_get_by_name_raises_lookup_not_found(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(list_key, [{"id": 2, "name": "web-2"}])
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(LookupNotFoundError, match="'web' was not found"):
+        getattr(client, service).get_by_name("web")
+
+
+@pytest.mark.parametrize(("service", "list_key"), _NAME_LOOKUP_CASES)
+def test_get_by_name_rejects_ambiguous_names(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(
+        list_key, [{"id": 5, "name": "web"}, {"id": 3, "name": "web"}]
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(ValueError, match=r"ambiguous: ids \[3, 5\]") as excinfo:
+        getattr(client, service).get_by_name("web")
+
+    assert not isinstance(excinfo.value, NotFoundError)
+    assert isinstance(excinfo.value, AmbiguousLookupError)
+
+
+@pytest.mark.parametrize(("service", "list_key"), [("groups", "groups"), ("zones", "zones")])
+def test_group_and_zone_ambiguity_lists_ids(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(
+        list_key, [{"id": 7, "name": "prod"}, {"id": 3, "name": "prod"}]
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(AmbiguousLookupError, match=r"ambiguous: ids \[3, 7\]") as excinfo:
+        getattr(client, service).get_by_name("prod")
+
+    assert isinstance(excinfo.value, ValueError)

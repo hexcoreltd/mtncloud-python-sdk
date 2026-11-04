@@ -145,3 +145,17 @@ def test_live_create_wait_delete(live_client: MtnCloudClient) -> None:
                 timeout=600,
                 poll_interval=15,
             )
+
+
+def test_live_cli_inventory(
+    live_client: MtnCloudClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import json
+
+    from mtn_cloud.cli import main
+
+    code = main(["inventory", "-o", "json"])
+    assert code in {0, 3}
+    document = json.loads(capsys.readouterr().out)
+
+    assert document["schema"] == "mtncloud.inventory/v1"

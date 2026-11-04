@@ -3,7 +3,7 @@
 from typing import Any
 
 from mtn_cloud.models.cloud import Cloud
-from mtn_cloud.modern_exceptions import NotFoundError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, NotFoundError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -46,5 +46,6 @@ class ZonesService(Service[Cloud]):
         if not matches:
             raise NotFoundError(f"Zone '{name}' not found")
         if len(matches) > 1:
-            raise ValueError(f"Zone name '{name}' is ambiguous")
+            ids = sorted(item.id for item in matches)
+            raise AmbiguousLookupError(f"Zone name '{name}' is ambiguous: ids {ids}")
         return matches[0]

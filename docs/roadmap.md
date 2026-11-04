@@ -117,7 +117,8 @@ They should not be hidden behind one ambiguous client abstraction.
 - `ClientSettings` with `.env` and `MTN_CLOUD_*` environment support
 - Bearer-token/API-key authentication configuration
 - Configurable timeout, retries, TLS verification, and user-agent
-- Typed transport and core error mapping
+- Typed transport and core error mapping, with request ID and operation
+  metadata on every pipeline error
 - Zones and deployment clouds
 - Tenant groups/projects
 - Instance types and layouts
@@ -209,7 +210,8 @@ Status: **in progress / foundation released**
 - Maintain Python 3.10+ support.
 - Keep unit tests deterministic and live tests explicitly guarded.
 - Add a sanitized contract-fixture format for each service.
-- Add standard request ID and operation metadata to exceptions.
+- Add standard request ID and operation metadata to exceptions. **Done:**
+  modern errors carry `request_id`, `method`, `path`, and `attempts`.
 - Define deprecation and compatibility policy for legacy modules.
 - Add release notes and migration guidance for every public API change.
 
@@ -384,7 +386,8 @@ mutation services.
 
 ### Milestone 10 — CLI, GitHub Action, and infrastructure integrations
 
-- Official `mtncloud` command-line interface
+- Official `mtncloud` command-line interface (read-only `list`, `describe`,
+  `inventory` and `version` done; `plan` and floating IPs are the next CLI items)
 - JSON output for automation
 - Human-readable tables for operators
 - `plan`, `apply`, `wait`, `destroy`, and `inventory` commands
@@ -527,8 +530,11 @@ A service is ready for a public modern SDK release when it has:
    databases, automation, operations, and billing.
 3. Promote routers, subnets, floating IPs, and volumes from legacy code into
    modern typed services.
-4. Add operation metadata and request-ID propagation to the core client.
+4. ~~Add operation metadata and request-ID propagation to the core client.~~
+   Done.
 5. Build the `mtncloud` CLI around read-only inventory and dry-run output.
+   ~~Read-only inventory~~ is done. Dry-run output (`plan`) and floating IPs
+   are pending.
 6. Implement the first GitHub Action for authenticated inventory and dry-run
    provisioning.
 7. Add migration-oriented examples and evidence export.

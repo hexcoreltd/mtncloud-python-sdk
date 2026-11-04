@@ -47,7 +47,13 @@ class CoreClient:
         headers: Mapping[str, str] | None = None,
         timeout: float | None = None,
     ) -> Any:
+        operation: dict[str, Any] = {
+            "method": method.upper(),
+            # Query strings can carry filter values; keep them out of errors.
+            "path": path.split("?", 1)[0],
+        }
         for attempt in range(self.settings.max_retries + 1):
+            operation["attempts"] = attempt + 1
             request_headers = dict(headers or {})
             token = self.credentials.get_token()
             if token:
@@ -63,15 +69,21 @@ class CoreClient:
                     timeout=timeout,
                 )
             except requests.exceptions.Timeout as exc:
-                raise TransportError(f"Request to {path} timed out") from exc
+                raise TransportError(
+                    f"Request to {operation['path']} timed out", **operation
+                ) from exc
             except requests.exceptions.RequestException as exc:
-                raise TransportError(f"Request to {path} failed: {exc}") from exc
+                # The requests message embeds the full URL, including query
+                # parameters; keep it on __cause__ rather than in the message.
+                raise TransportError(
+                    f"Request to {operation['path']} failed: {type(exc).__name__}", **operation
+                ) from exc
             if self._should_retry(method, response.status_code, attempt):
                 self._sleeper(self._retry_delay(response, attempt))
                 continue
             if response.status_code == 401:
                 self.credentials.invalidate()
-            self._raise_for_status(response)
+            self._raise_for_status(response, operation)
             return response.body
 
         raise AssertionError("retry loop exited without a response")
@@ -93,7 +105,7 @@ class CoreClient:
         return float(self.settings.retry_delay * (2**attempt))
 
     @staticmethod
-    def _raise_for_status(response: HttpResponse) -> None:
+    def _raise_for_status(response: HttpResponse, operation: Mapping[str, Any]) -> None:
         if 200 <= response.status_code < 300:
             return
 
@@ -102,6 +114,7 @@ class CoreClient:
             "status_code": response.status_code,
             "response": response.body if isinstance(response.body, dict) else None,
             "request_id": response.request_id,
+            **operation,
         }
         if response.status_code == 401:
             raise AuthenticationError(message, **kwargs)

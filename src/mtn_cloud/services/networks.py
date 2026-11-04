@@ -49,6 +49,13 @@ class NetworksService(Service[Network]):
     def get(self, network_id: int) -> Network:
         return self._get(network_id)
 
+    def get_by_name(
+        self, name: str, *, zone_id: int | None = None, group_id: int | None = None
+    ) -> Network:
+        """Return the uniquely named network, optionally scoped by zone or group."""
+
+        return self._get_by_name("Network", name, zone_id=zone_id, group_id=group_id)
+
     def create(self, request: NetworkCreate) -> Network:
         """Create a tenant network from a typed request payload."""
 

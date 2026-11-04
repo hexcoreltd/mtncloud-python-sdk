@@ -10,11 +10,26 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only `mtncloud` CLI (`[cli]` extra) with `instances`, `networks`, `routers`
+  `list`/`describe`, `inventory`, and `version`; versioned JSON output and documented
+  exit codes.
+- `AmbiguousLookupError` (a `ValueError`), raised when `get_by_name` matches several
+  resources. Group and zone ambiguity messages now list the matching IDs.
+- `get_by_name()` on instances, networks and routers.
+- `list_all()` on modern list services, which follows pagination across all pages.
 - Typed read-only subnet lookup by ID and unique name within a parent network.
 - Typed router interface discovery and subnet-based interface lookup.
 - Typed storage-volume lookup by unique name and unattached-volume discovery.
 - Typed network-pool IP lookup by exact address.
 - Modern `ForbiddenError` (HTTP 403) and `ConflictError` (HTTP 409) exceptions.
+- Modern errors raised by the request pipeline record the failed operation's
+  `method`, query-free `path`, and `attempts` (including retries), and show
+  them in `str(error)`, for example
+  `missing (HTTP 404) [GET /instances/5, request_id=req-1]`.
+- `TransportError` messages for connection failures now name only the
+  exception type instead of embedding the underlying message, which can include
+  the full URL and query parameters. The original exception remains available
+  as `__cause__`.
 
 - Modern typed router service with router discovery, external gateway options,
   MTN neutron-router creation/deletion, and readiness/deletion waiters.
@@ -52,6 +67,12 @@ would normally require a major release in a mature stable SDK.
   and README.
 - Hardened the request and service layers for strict static type checking.
 - Standardized repository formatting and lint compliance for CI quality gates.
+
+### Fixed
+
+- Modern exceptions, including `TimeoutError`, can now be pickled, so they
+  can be passed between processes (for example through `multiprocessing` or
+  `concurrent.futures`).
 
 ### Planned
 

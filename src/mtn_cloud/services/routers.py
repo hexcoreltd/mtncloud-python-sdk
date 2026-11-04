@@ -62,6 +62,13 @@ class RoutersService(Service[Router]):
     def get(self, router_id: int) -> Router:
         return self._get(router_id)
 
+    def get_by_name(
+        self, name: str, *, zone_id: int | None = None, group_id: int | None = None
+    ) -> Router:
+        """Return the uniquely named router, optionally scoped by zone or group."""
+
+        return self._get_by_name("Router", name, zone_id=zone_id, group_id=group_id)
+
     def list_interfaces(self, router_id: int) -> List[RouterInterface]:
         """List the interfaces attached to a router."""
 

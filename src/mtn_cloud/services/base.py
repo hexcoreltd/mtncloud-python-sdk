@@ -1,13 +1,13 @@
 """Shared primitives for modern service clients."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel
 
 from mtn_cloud.core import CoreClient
-from mtn_cloud.modern_exceptions import MtnCloudError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, LookupNotFoundError, MtnCloudError
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -60,6 +60,26 @@ class Service(Generic[T]):
             total=total,
         )
 
+    def list_all(self, *, page_size: int = 100, **filters: Any) -> list[T]:
+        """Return every item by following pagination through the service's ``list_page``."""
+        if page_size < 1:
+            raise ValueError("page_size must be at least 1")
+        list_page = cast(Callable[..., Page[T]], getattr(self, "list_page"))  # noqa: B009
+        collected: list[T] = []
+        offset = 0
+        while True:
+            page = list_page(limit=page_size, offset=offset, **filters)
+            if not page.items:
+                break
+            collected.extend(page.items)
+            offset += len(page.items)
+            if page.total is not None:
+                if len(collected) >= page.total:
+                    break
+            elif len(page.items) < page_size:
+                break
+        return collected
+
     def _get(self, resource_id: int) -> T:
         body = self._core.request("GET", f"{self.path}/{resource_id}")
         if not isinstance(body, Mapping):
@@ -72,3 +92,15 @@ class Service(Generic[T]):
     @staticmethod
     def _integer(value: Any, *, default: int | None = None) -> int | None:
         return value if type(value) is int and value >= 0 else default
+
+    def _get_by_name(self, kind: str, name: str, **filters: Any) -> T:
+        """Return the single resource whose name exactly matches ``name``."""
+
+        candidates = self.list_all(name=name, **filters)
+        matches = [item for item in candidates if getattr(item, "name", None) == name]
+        if not matches:
+            raise LookupNotFoundError(f"{kind} '{name}' was not found")
+        if len(matches) > 1:
+            ids = sorted(cast(Any, item).id for item in matches)
+            raise AmbiguousLookupError(f"{kind} name '{name}' is ambiguous: ids {ids}")
+        return matches[0]
