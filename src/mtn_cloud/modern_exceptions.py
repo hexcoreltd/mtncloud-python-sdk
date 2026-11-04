@@ -3,6 +3,18 @@
 from typing import Any
 
 
+def _restore_error(cls: type["MtnCloudError"], args: tuple[Any, ...]) -> "MtnCloudError":
+    """Recreate an error without calling ``__init__``; pickle restores its attributes.
+
+    Pickled errors reference this function by its module path, so renaming or
+    removing it breaks loading errors pickled by earlier releases.
+    """
+
+    error = cls.__new__(cls, *args)
+    error.args = args
+    return error
+
+
 class MtnCloudError(Exception):
     """Base class for all modern SDK errors.
 
@@ -31,6 +43,11 @@ class MtnCloudError(Exception):
         self.method = method
         self.path = path
         self.attempts = attempts
+
+    def __reduce__(self) -> tuple[Any, ...]:
+        # The default reduce calls ``cls(*args)``, which fails for subclasses
+        # with required keyword-only arguments such as ``TimeoutError``.
+        return (_restore_error, (type(self), self.args), self.__dict__)
 
     def __str__(self) -> str:
         suffix = f" (HTTP {self.status_code})" if self.status_code else ""

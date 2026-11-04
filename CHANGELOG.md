@@ -61,6 +61,12 @@ would normally require a major release in a mature stable SDK.
 - Hardened the request and service layers for strict static type checking.
 - Standardized repository formatting and lint compliance for CI quality gates.
 
+### Fixed
+
+- Modern exceptions, including `TimeoutError`, can now be pickled, so they
+  can be passed between processes (for example through `multiprocessing` or
+  `concurrent.futures`).
+
 ### Planned
 
 - Expand coverage for additional MTN Cloud resources and lifecycle operations.

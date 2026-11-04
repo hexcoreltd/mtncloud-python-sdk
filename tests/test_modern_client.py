@@ -1,3 +1,4 @@
+import copy
 from typing import Any
 from unittest.mock import Mock
 
@@ -1032,3 +1033,44 @@ def test_authentication_errors_normalize_method_and_carry_metadata() -> None:
         "/instances/5",
         1,
     )
+
+
+def _modern_error_classes() -> list[type[MtnCloudError]]:
+    import inspect
+
+    from mtn_cloud import modern_exceptions
+
+    return [
+        cls
+        for _, cls in inspect.getmembers(modern_exceptions, inspect.isclass)
+        if issubclass(cls, MtnCloudError)
+    ]
+
+
+@pytest.mark.parametrize("error_type", _modern_error_classes(), ids=lambda cls: cls.__name__)
+def test_modern_errors_survive_pickling(error_type: type[MtnCloudError]) -> None:
+    import pickle
+
+    extra: dict[str, Any] = {"timeout": 30.0} if error_type is ModernTimeoutError else {}
+    error = error_type(
+        "failed",
+        status_code=503,
+        response={"message": "failed"},
+        request_id="req-1",
+        method="GET",
+        path="/whoami",
+        attempts=2,
+        **extra,
+    )
+
+    restored = pickle.loads(pickle.dumps(error))
+
+    assert type(restored) is error_type
+    assert restored.__dict__ == error.__dict__
+    assert restored.args == error.args
+    assert str(restored) == str(error)
+
+    copied = copy.deepcopy(error)
+    assert type(copied) is error_type
+    assert copied.__dict__ == error.__dict__
+    assert copied.response is not error.response
