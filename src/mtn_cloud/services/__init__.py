@@ -10,6 +10,7 @@ from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
 from mtn_cloud.services.zones import ZonesService
 from mtn_cloud.services.volumes import VolumesService
+from mtn_cloud.services.storage_buckets import StorageBucketsService
 
 __all__ = [
     "GroupsService",
@@ -23,5 +24,6 @@ __all__ = [
     "SecurityGroupsService",
     "ZonesService",
     "VolumesService",
+    "StorageBucketsService",
 ]
 from mtn_cloud.services.backups import BackupsService

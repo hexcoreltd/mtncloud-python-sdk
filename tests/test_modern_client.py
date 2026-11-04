@@ -8,6 +8,7 @@ from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRu
 from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.models.network import NetworkCreate, NetworkUpdate
 from mtn_cloud.models.snapshot import SnapshotCreate
+from mtn_cloud.models.storage_bucket import StorageBucketCreate, StorageBucketUpdate
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
 from mtn_cloud.modern_exceptions import AuthenticationError
 from mtn_cloud.transport import HttpResponse
@@ -575,6 +576,36 @@ def test_volumes_service_discovers_enabled_volume_types() -> None:
         "offset": 0,
         "category": "volume",
     }
+
+
+def test_storage_buckets_service_manages_s3_provider_configuration() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(201, {}, {"storageBucket": {"id": 110, "name": "backups", "providerType": "s3"}}),
+        HttpResponse(200, {}, {"storageBucket": {"id": 110, "name": "backups-renamed"}}),
+        HttpResponse(204, {}, None),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    bucket = client.storage_buckets.create(
+        StorageBucketCreate(
+            name="backups",
+            bucket_name="hexcore-backups",
+            config={
+                "accessKey": "access-key",
+                "secretKey": "secret-key",
+                "endpoint": "https://object-storage.example",
+            },
+            create_bucket=False,
+        )
+    )
+    renamed = client.storage_buckets.update(110, StorageBucketUpdate(name="backups-renamed"))
+    assert client.storage_buckets.delete(110) is True
+
+    assert bucket.is_s3 is True
+    assert renamed.name == "backups-renamed"
+    assert transport.request.call_args_list[0].kwargs["json"]["storageBucket"]["bucketName"] == "hexcore-backups"
+    assert transport.request.call_args_list[2].kwargs["params"] is None
 
 
 def test_security_groups_service_manages_groups_and_rules() -> None:

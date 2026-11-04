@@ -163,6 +163,7 @@ The current modern service surface is:
 | `cloud.security_groups` | Manage security groups and firewall rules |
 | `cloud.backups` | Inspect backup configurations, jobs, and results |
 | `cloud.volumes` | Discover block-storage volumes, attachments, and volume types |
+| `cloud.storage_buckets` | Manage S3-compatible storage-provider configurations |
 
 Some MTN Cloud endpoints are permission-scoped. A valid credential may be
 able to access tenant-scoped endpoints while receiving `403 Forbidden` from
