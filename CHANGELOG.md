@@ -20,6 +20,8 @@ would normally require a major release in a mature stable SDK.
 - Modern snapshot operations for listing, creating, reverting, and deleting
   instance snapshots.
 - Modern backup operations for configurations, executions, jobs, and results.
+- Modern read-only block-storage volume discovery at `/storage/volumes`,
+  including instance attachment filtering.
 
 ### Planned
 

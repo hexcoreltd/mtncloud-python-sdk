@@ -526,6 +526,34 @@ def test_backups_service_lists_and_executes_backups() -> None:
     assert job.id == 92
 
 
+def test_volumes_service_discovers_and_filters_attached_volumes() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(
+            200,
+            {},
+            {
+                "storageVolumes": [
+                    {"id": 9450, "name": "root", "maxStorage": 42949672960, "instanceId": 4737}
+                ],
+                "meta": {"offset": 0, "max": 10, "total": 1},
+            },
+        ),
+        HttpResponse(200, {}, {"storageVolume": {"id": 9450, "name": "root", "status": "provisioned"}}),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    attached = client.volumes.list_attached(4737)
+    volume = client.volumes.get(9450)
+
+    assert attached[0].is_attached is True
+    assert volume.status == "provisioned"
+    assert transport.request.call_args_list[0].kwargs["params"] == {
+        "offset": 0,
+        "instanceId": 4737,
+    }
+
+
 def test_security_groups_service_manages_groups_and_rules() -> None:
     transport = Mock()
     transport.request.side_effect = [

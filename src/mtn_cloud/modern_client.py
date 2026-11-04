@@ -15,6 +15,7 @@ from mtn_cloud.services.plans import PlansService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
 from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
+from mtn_cloud.services.volumes import VolumesService
 from mtn_cloud.services.zones import ZonesService
 from mtn_cloud.settings import ClientSettings
 from mtn_cloud.transport import Transport
@@ -59,6 +60,7 @@ class MtnCloudClient:
         self._security_groups: SecurityGroupsService | None = None
         self._routers: RoutersService | None = None
         self._backups: BackupsService | None = None
+        self._volumes: VolumesService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -157,6 +159,14 @@ class MtnCloudClient:
         if self._backups is None:
             self._backups = BackupsService(self._core)
         return self._backups
+
+    @property
+    def volumes(self) -> VolumesService:
+        """Access tenant block-storage volume discovery."""
+
+        if self._volumes is None:
+            self._volumes = VolumesService(self._core)
+        return self._volumes
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

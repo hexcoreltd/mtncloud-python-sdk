@@ -215,6 +215,7 @@ Implemented in the current development line:
   configuration
 - Modern instance snapshot operations
 - Modern backup configuration, job, execution, and result operations
+- Modern read-only block-storage volume discovery and attachment filtering
 - Modern router listing and retrieval
 - External gateway discovery
 - MTN neutron-router creation and deletion
