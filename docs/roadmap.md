@@ -211,6 +211,8 @@ Implemented in the current development line:
 - Network IP-pool and pool-IP discovery
 - Parent-network validation for subnet discovery
 - Modern network create, update, and delete operations
+- High-level floating-IP request support through instance external-network
+  configuration
 - Modern router listing and retrieval
 - External gateway discovery
 - MTN neutron-router creation and deletion
@@ -219,6 +221,8 @@ Implemented in the current development line:
 Still to implement and verify:
 
 - Subnets CRUD and IP allocation behavior
+- Standalone floating-IP allocation/association endpoints, if exposed by the
+  current MTN Cloud API contract
 - Routers and external networks
 - Router interfaces and route management
 - Floating/public IP allocation and association

@@ -212,6 +212,7 @@ class InstancesService(Service[Instance]):
         security_group: str = "default",
         create_user: bool = True,
         network_id: int | str | None = None,
+        external_network_id: str | None = None,
         root_volume_size_gb: int | None = 10,
         progress_callback: Callable[[Instance], None] | None = None,
     ) -> Instance | dict[str, Any]:
@@ -276,6 +277,7 @@ class InstancesService(Service[Instance]):
             labels=labels or [],
             tags=tags or {},
             security_group=security_group,
+            os_external_network_id=external_network_id,
             create_user=create_user,
             network_interfaces=(
                 [InstanceNetwork(network_id=self._network_reference(network_id))]
@@ -298,6 +300,8 @@ class InstancesService(Service[Instance]):
             "plan": plan_id,
             "resource_pool_id": pool_code,
         }
+        if external_network_id is not None:
+            resolved["external_network_id"] = external_network_id
         if dry_run:
             return resolved
 

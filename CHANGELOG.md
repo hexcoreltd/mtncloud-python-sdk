@@ -15,6 +15,8 @@ would normally require a major release in a mature stable SDK.
 - Network type, IP pool, and pool-IP discovery methods.
 - Parent-network validation for subnet discovery.
 - Modern network create, update, and delete operations using typed payloads.
+- High-level instance provisioning support for MTN external-network/floating-IP
+  assignment through `external_network_id`.
 
 ### Planned
 

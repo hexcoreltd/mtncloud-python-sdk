@@ -335,6 +335,7 @@ def test_instance_provision_dry_run_resolves_dependencies() -> None:
         plan="small",
         dry_run=True,
         network_id=50,
+        external_network_id="public-network-01",
     )
 
     assert resolved == {
@@ -346,6 +347,7 @@ def test_instance_provision_dry_run_resolves_dependencies() -> None:
         "layout": 20,
         "plan": 30,
         "resource_pool_id": "pool-214",
+        "external_network_id": "public-network-01",
     }
 
 

@@ -186,6 +186,7 @@ with MtnCloudClient() as cloud:
         group="MTNNG_CLOUD_AZ_1",
         plan="G1S1",
         network_id=660,
+        external_network_id="public-network-01",
         root_volume_size_gb=10,
         dry_run=True,
     )
@@ -204,6 +205,7 @@ with MtnCloudClient() as cloud:
         group="MTNNG_CLOUD_AZ_1",
         plan="G1S1",
         network_id=660,
+        external_network_id="public-network-01",
         root_volume_size_gb=10,
         timeout=1_800,
         poll_interval=15,
