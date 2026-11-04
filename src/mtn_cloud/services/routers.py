@@ -62,6 +62,20 @@ class RoutersService(Service[Router]):
     def get(self, router_id: int) -> Router:
         return self._get(router_id)
 
+    def get_by_name(
+        self, name: str, *, zone_id: int | None = None, group_id: int | None = None
+    ) -> Router:
+        """Return the uniquely named router, optionally scoped by zone or group."""
+
+        candidates = self.list_all(name=name, zone_id=zone_id, group_id=group_id)
+        matches = [item for item in candidates if item.name == name]
+        if not matches:
+            raise LookupNotFoundError(f"Router '{name}' was not found")
+        if len(matches) > 1:
+            ids = sorted(item.id for item in matches)
+            raise ValueError(f"Router name '{name}' is ambiguous: ids {ids}")
+        return matches[0]
+
     def list_interfaces(self, router_id: int) -> List[RouterInterface]:
         """List the interfaces attached to a router."""
 

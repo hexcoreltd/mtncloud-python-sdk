@@ -49,6 +49,20 @@ class NetworksService(Service[Network]):
     def get(self, network_id: int) -> Network:
         return self._get(network_id)
 
+    def get_by_name(
+        self, name: str, *, zone_id: int | None = None, group_id: int | None = None
+    ) -> Network:
+        """Return the uniquely named network, optionally scoped by zone or group."""
+
+        candidates = self.list_all(name=name, zone_id=zone_id, group_id=group_id)
+        matches = [item for item in candidates if item.name == name]
+        if not matches:
+            raise LookupNotFoundError(f"Network '{name}' was not found")
+        if len(matches) > 1:
+            ids = sorted(item.id for item in matches)
+            raise ValueError(f"Network name '{name}' is ambiguous: ids {ids}")
+        return matches[0]
+
     def create(self, request: NetworkCreate) -> Network:
         """Create a tenant network from a typed request payload."""
 

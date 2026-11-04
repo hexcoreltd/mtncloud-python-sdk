@@ -1164,3 +1164,55 @@ def test_list_all_rejects_invalid_page_size() -> None:
 
     with pytest.raises(ValueError):
         client.instances.list_all(page_size=0)
+
+
+_NAME_LOOKUP_CASES = [
+    ("instances", "instances"),
+    ("networks", "networks"),
+    ("routers", "networkRouters"),
+]
+
+
+def _named_response(list_key: str, items: list[dict[str, Any]]) -> HttpResponse:
+    return HttpResponse(200, {}, {list_key: items})
+
+
+@pytest.mark.parametrize(("service", "list_key"), _NAME_LOOKUP_CASES)
+def test_get_by_name_returns_exact_match(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(
+        list_key, [{"id": 1, "name": "web"}, {"id": 2, "name": "web-2"}]
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    result = getattr(client, service).get_by_name("web", zone_id=4, group_id=7)
+
+    assert result.id == 1
+    params = transport.request.call_args.kwargs["params"]
+    assert params["name"] == "web"
+    assert params["zoneId"] == 4
+    assert params["siteId"] == 7
+
+
+@pytest.mark.parametrize(("service", "list_key"), _NAME_LOOKUP_CASES)
+def test_get_by_name_raises_lookup_not_found(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(list_key, [{"id": 2, "name": "web-2"}])
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(LookupNotFoundError, match="'web' was not found"):
+        getattr(client, service).get_by_name("web")
+
+
+@pytest.mark.parametrize(("service", "list_key"), _NAME_LOOKUP_CASES)
+def test_get_by_name_rejects_ambiguous_names(service: str, list_key: str) -> None:
+    transport = Mock()
+    transport.request.return_value = _named_response(
+        list_key, [{"id": 5, "name": "web"}, {"id": 3, "name": "web"}]
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    with pytest.raises(ValueError, match=r"ambiguous: ids \[3, 5\]") as excinfo:
+        getattr(client, service).get_by_name("web")
+
+    assert not isinstance(excinfo.value, NotFoundError)

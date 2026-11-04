@@ -85,6 +85,20 @@ class InstancesService(Service[Instance]):
     def get(self, instance_id: int) -> Instance:
         return self._get(instance_id)
 
+    def get_by_name(
+        self, name: str, *, zone_id: int | None = None, group_id: int | None = None
+    ) -> Instance:
+        """Return the uniquely named instance, optionally scoped by zone or group."""
+
+        candidates = self.list_all(name=name, zone_id=zone_id, group_id=group_id)
+        matches = [item for item in candidates if item.name == name]
+        if not matches:
+            raise LookupNotFoundError(f"Instance '{name}' was not found")
+        if len(matches) > 1:
+            ids = sorted(item.id for item in matches)
+            raise ValueError(f"Instance name '{name}' is ambiguous: ids {ids}")
+        return matches[0]
+
     def create(self, request: InstanceCreate) -> Instance:
         body = self._core.request("POST", self.path, json=request.to_api_payload())
         return self._parse_item(body)
