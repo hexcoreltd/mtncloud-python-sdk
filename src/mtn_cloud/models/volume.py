@@ -41,6 +41,17 @@ class StorageVolume(Resource):
         """Check if volume is attached to an instance."""
         return self.instance_id is not None
 
+    @property
+    def is_available(self) -> bool:
+        """Return whether the volume appears available for attachment."""
+
+        return not self.is_attached and (self.status or "").lower() in {
+            "",
+            "available",
+            "provisioned",
+            "ready",
+        }
+
 
 # Backwards-compatible name retained for earlier SDK versions.
 Volume = StorageVolume

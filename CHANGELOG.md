@@ -12,6 +12,7 @@ would normally require a major release in a mature stable SDK.
 
 - Typed read-only subnet lookup by ID and unique name within a parent network.
 - Typed router interface discovery and subnet-based interface lookup.
+- Typed storage-volume lookup by unique name and unattached-volume discovery.
 
 - Modern typed router service with router discovery, external gateway options,
   MTN neutron-router creation/deletion, and readiness/deletion waiters.

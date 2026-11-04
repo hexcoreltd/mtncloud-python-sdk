@@ -654,6 +654,34 @@ def test_volumes_service_discovers_and_filters_attached_volumes() -> None:
     }
 
 
+def test_volumes_service_resolves_names_and_unattached_volumes() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(
+            200,
+            {},
+            {
+                "storageVolumes": [
+                    {"id": 9450, "name": "root", "status": "provisioned"},
+                    {"id": 9451, "name": "data", "status": "attached", "instanceId": 4737},
+                ]
+            },
+        ),
+        HttpResponse(
+            200,
+            {},
+            {"storageVolumes": [{"id": 9450, "name": "root", "status": "provisioned"}]},
+        ),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    assert client.volumes.get_by_name("root").id == 9450
+    unattached = client.volumes.list_unattached()
+
+    assert [volume.name for volume in unattached] == ["root"]
+    assert unattached[0].is_available is True
+
+
 def test_volumes_service_discovers_enabled_volume_types() -> None:
     transport = Mock()
     transport.request.return_value = HttpResponse(

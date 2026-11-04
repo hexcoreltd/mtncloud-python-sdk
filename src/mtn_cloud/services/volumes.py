@@ -43,6 +43,18 @@ class VolumesService(Service[StorageVolume]):
     def get(self, volume_id: int) -> StorageVolume:
         return self._get(volume_id)
 
+    def get_by_name(self, name: str, *, zone_id: int | None = None) -> StorageVolume:
+        """Return a uniquely named volume, optionally scoped to a zone."""
+
+        matches = [
+            volume for volume in self.list(phrase=name, zone_id=zone_id) if volume.name == name
+        ]
+        if not matches:
+            raise ValueError(f"Storage volume '{name}' was not found")
+        if len(matches) > 1:
+            raise ValueError(f"Storage volume name '{name}' is ambiguous")
+        return matches[0]
+
     def list_types(
         self,
         *,
@@ -76,3 +88,8 @@ class VolumesService(Service[StorageVolume]):
         """List volumes attached to one instance."""
 
         return self.list(instance_id=instance_id)
+
+    def list_unattached(self, *, zone_id: int | None = None) -> List[StorageVolume]:
+        """List volumes that are not currently attached to an instance."""
+
+        return [volume for volume in self.list(zone_id=zone_id) if not volume.is_attached]

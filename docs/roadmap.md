@@ -230,6 +230,7 @@ Implemented in the current development line:
 - Modern backup configuration, job, execution, and result operations
 - Modern read-only block-storage volume discovery and attachment filtering
 - Storage-volume type and provider-option discovery
+- Typed storage-volume lookup by unique name and unattached-volume discovery
 - Modern S3-compatible storage-bucket configuration CRUD
 - Modern router listing and retrieval
 - External gateway discovery
