@@ -235,6 +235,7 @@ Implemented in the current development line:
 - External gateway discovery
 - MTN neutron-router creation and deletion
 - Router readiness and deletion waiters
+- Typed router interface discovery and subnet-based interface lookup
 
 Still to implement and verify:
 
@@ -245,8 +246,7 @@ Still to implement and verify:
   verified
 - Standalone floating-IP allocation/association endpoints, if exposed by the
   current MTN Cloud API contract
-- Routers and external networks
-- Router interfaces and route management
+- Router interface attach/detach and route management (mutation contract pending)
 - Floating/public IP allocation and association
 - Network validation and dependency graph
 - Load balancers where the API contract is available

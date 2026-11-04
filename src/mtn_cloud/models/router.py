@@ -22,6 +22,13 @@ class RouterInterface(BaseModel):
 
     cidr: str | None = None
     network: ResourceReference | None = None
+    subnet: ResourceReference | None = Field(default=None, alias="networkSubnet")
+
+    @property
+    def subnet_id(self) -> int | None:
+        """Return the attached subnet ID when the API provides it."""
+
+        return self.subnet.id if self.subnet is not None else None
 
 
 class Router(Resource):

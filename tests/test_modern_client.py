@@ -554,6 +554,33 @@ def test_routers_service_creates_and_reads_router() -> None:
     )
 
 
+def test_routers_service_lists_and_resolves_interfaces() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        200,
+        {},
+        {
+            "networkRouter": {
+                "id": 99,
+                "name": "edge-router",
+                "interfaces": [
+                    {
+                        "cidr": "10.0.0.0/24",
+                        "networkSubnet": {"id": 4112, "name": "private-subnet"},
+                    }
+                ],
+            }
+        },
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    interface = client.routers.get_interface(99, 4112)
+
+    assert interface.subnet_id == 4112
+    assert interface.cidr == "10.0.0.0/24"
+    assert transport.request.call_args.args[:2] == ("GET", "/networks/routers/99")
+
+
 def test_instances_service_manages_snapshots() -> None:
     transport = Mock()
     transport.request.side_effect = [

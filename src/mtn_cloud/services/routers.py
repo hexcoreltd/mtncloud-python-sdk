@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any, List
 
 from mtn_cloud.core import CoreClient
-from mtn_cloud.models.router import ExternalNetwork, Router, RouterCreate
+from mtn_cloud.models.router import ExternalNetwork, Router, RouterCreate, RouterInterface
 from mtn_cloud.modern_exceptions import MtnCloudError, NotFoundError, TimeoutError
 from mtn_cloud.services.base import Page, Service
 
@@ -56,6 +56,30 @@ class RoutersService(Service[Router]):
 
     def get(self, router_id: int) -> Router:
         return self._get(router_id)
+
+    def list_interfaces(self, router_id: int) -> List[RouterInterface]:
+        """List the interfaces attached to a router."""
+
+        return self.get(router_id).interfaces
+
+    def get_interface(self, router_id: int, subnet_id: int) -> RouterInterface:
+        """Return the interface attached to a subnet.
+
+        Interfaces are currently exposed as part of the router resource, so
+        this helper deliberately uses router retrieval instead of assuming a
+        separate undocumented interface endpoint.
+        """
+
+        matches = [
+            interface
+            for interface in self.list_interfaces(router_id)
+            if interface.subnet_id == subnet_id
+        ]
+        if not matches:
+            raise ValueError(f"Router {router_id} has no interface for subnet {subnet_id}")
+        if len(matches) > 1:
+            raise ValueError(f"Router {router_id} has multiple interfaces for subnet {subnet_id}")
+        return matches[0]
 
     def list_types(self, *, limit: int = 100, offset: int = 0) -> List[dict[str, Any]]:
         """List router types exposed by the control plane."""
