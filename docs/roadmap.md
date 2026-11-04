@@ -210,6 +210,7 @@ Implemented in the current development line:
 - Modern network type discovery
 - Network IP-pool and pool-IP discovery
 - Parent-network validation for subnet discovery
+- Modern network create, update, and delete operations
 - Modern router listing and retrieval
 - External gateway discovery
 - MTN neutron-router creation and deletion
@@ -217,7 +218,6 @@ Implemented in the current development line:
 
 Still to implement and verify:
 
-- Modern networks CRUD
 - Subnets CRUD and IP allocation behavior
 - Routers and external networks
 - Router interfaces and route management

@@ -3,7 +3,15 @@
 from typing import Any, List
 
 from mtn_cloud.core import CoreClient
-from mtn_cloud.models.network import Network, NetworkPool, NetworkPoolIp, NetworkTypeInfo, Subnet
+from mtn_cloud.models.network import (
+    Network,
+    NetworkCreate,
+    NetworkPool,
+    NetworkPoolIp,
+    NetworkTypeInfo,
+    NetworkUpdate,
+    Subnet,
+)
 from mtn_cloud.modern_exceptions import MtnCloudError
 from mtn_cloud.services.base import Page, Service
 
@@ -39,6 +47,28 @@ class NetworksService(Service[Network]):
 
     def get(self, network_id: int) -> Network:
         return self._get(network_id)
+
+    def create(self, request: NetworkCreate) -> Network:
+        """Create a tenant network from a typed request payload."""
+
+        body = self._core.request("POST", self.path, json=request.to_api_payload())
+        return self._parse_item(body)
+
+    def update(self, network_id: int, request: NetworkUpdate) -> Network:
+        """Update mutable network configuration."""
+
+        body = self._core.request(
+            "PUT",
+            f"{self.path}/{network_id}",
+            json=request.to_api_payload(),
+        )
+        return self._parse_item(body)
+
+    def delete(self, network_id: int) -> bool:
+        """Delete a tenant network."""
+
+        self._core.request("DELETE", f"{self.path}/{network_id}")
+        return True
 
     def list_subnets(self, network_id: int) -> List[Subnet]:
         body = self._core.request("GET", f"{self.path}/{network_id}/subnets")
@@ -134,3 +164,12 @@ class NetworksService(Service[Network]):
         if not isinstance(body, dict) or not isinstance(body.get("networkPoolIps"), list):
             raise MtnCloudError("Invalid network-pool IP response")
         return [NetworkPoolIp.model_validate(item) for item in body["networkPoolIps"]]
+
+    @staticmethod
+    def _parse_item(body: Any) -> Network:
+        if not isinstance(body, dict):
+            raise MtnCloudError("Invalid network response")
+        payload = body.get("network", body)
+        if not isinstance(payload, dict):
+            raise MtnCloudError("Invalid network response")
+        return Network.model_validate(payload)

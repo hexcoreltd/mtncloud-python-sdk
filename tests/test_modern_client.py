@@ -6,6 +6,7 @@ from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
 from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
 from mtn_cloud.models.router import RouterCreate
+from mtn_cloud.models.network import NetworkCreate, NetworkUpdate
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
 from mtn_cloud.modern_exceptions import AuthenticationError
 from mtn_cloud.transport import HttpResponse
@@ -379,6 +380,42 @@ def test_networks_service_discovers_types_and_ip_pools() -> None:
     assert network_type.is_openstack is True
     assert pool.name == "private-pool"
     assert pool_ip.ip_address == "10.0.0.10"
+
+
+def test_networks_service_creates_updates_and_deletes_networks() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(201, {}, {"network": {"id": 60, "name": "sdk-net", "cidr": "10.20.0.0/24"}}),
+        HttpResponse(200, {}, {"network": {"id": 60, "name": "sdk-net-renamed"}}),
+        HttpResponse(204, {}, None),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    network = client.networks.create(
+        NetworkCreate(
+            name="sdk-net",
+            cloud_id=4,
+            group_id=621,
+            type_id=10,
+            resource_pool_id=214,
+            cidr="10.20.0.0/24",
+        )
+    )
+    renamed = client.networks.update(60, NetworkUpdate(display_name="sdk-net-renamed"))
+    assert client.networks.delete(60) is True
+
+    assert network.id == 60
+    assert renamed.name == "sdk-net-renamed"
+    assert transport.request.call_args_list[0].kwargs["json"] == {
+        "network": {
+            "name": "sdk-net",
+            "site": {"id": 621},
+            "zone": {"id": 4},
+            "type": {"id": 10},
+            "zonePool": {"id": 214},
+            "cidr": "10.20.0.0/24",
+        }
+    }
 
 
 def test_routers_service_lists_external_networks() -> None:

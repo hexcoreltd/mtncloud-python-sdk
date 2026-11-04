@@ -14,6 +14,7 @@ would normally require a major release in a mature stable SDK.
   MTN neutron-router creation/deletion, and readiness/deletion waiters.
 - Network type, IP pool, and pool-IP discovery methods.
 - Parent-network validation for subnet discovery.
+- Modern network create, update, and delete operations using typed payloads.
 
 ### Planned
 

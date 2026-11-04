@@ -158,7 +158,7 @@ The current modern service surface is:
 | `cloud.plans` | List general and provisioning-scoped service plans |
 | `cloud.resource_pools` | Discover compatible placement pools |
 | `cloud.instances` | List, create, update, delete, and operate instances |
-| `cloud.networks` | List networks and subnets |
+| `cloud.networks` | List, create, update, and delete networks; list subnets |
 | `cloud.routers` | Discover external gateways and manage MTN routers |
 | `cloud.security_groups` | Manage security groups and firewall rules |
 
