@@ -17,7 +17,7 @@ from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentialsError
 from mtn_cloud.cli.output import OutputFormat
 from mtn_cloud.cli.registry import REGISTRY, ResourceSpec
-from mtn_cloud.cli.scope import is_id, resolve_scope
+from mtn_cloud.cli.scope import is_id, resolve_scope, scope_filters
 from mtn_cloud.modern_exceptions import AmbiguousLookupError, MtnCloudError
 
 ClientFactory = Callable[[ClientSettings], MtnCloudClient]
@@ -60,9 +60,12 @@ def _build_settings(base_url: str | None, timeout: float | None) -> ClientSettin
             f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
         )
         first = str(exc.errors()[0]["loc"][0]) if exc.errors() else ""
-        raise typer.BadParameter(
-            f"invalid setting {details}", param_hint=_FIELD_OPTIONS.get(first)
-        ) from None
+        if first in overrides:
+            raise typer.BadParameter(
+                f"invalid setting {details}", param_hint=_FIELD_OPTIONS.get(first)
+            ) from None
+        source = f"MTN_CLOUD_{first.upper()}" if first else "settings"
+        raise typer.BadParameter(details, param_hint=source) from None
 
 
 def _validate_format(requested: str | None) -> OutputFormat:
@@ -194,9 +197,14 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
     sub = typer.Typer(
         help=f"List and describe {spec.name}.",
         pretty_exceptions_enable=False,
-        no_args_is_help=True,
         add_completion=False,
     )
+
+    @sub.callback(invoke_without_command=True)
+    def resource_root(ctx: typer.Context) -> None:
+        if ctx.invoked_subcommand is None:
+            typer.echo(ctx.get_help())
+            raise typer.Exit(EXIT_OK)
 
     def apply_format(cli: CliContext, requested: str | None) -> None:
         if requested is not None:
@@ -218,12 +226,10 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         apply_format(cli, output_format)
         client = cli.client()
         scope = resolve_scope(client, group=group, zone=zone)
-        filters: dict[str, Any] = {"zone_id": scope.zone_id, "group_id": scope.group_id}
+        filters: dict[str, Any] = dict(scope_filters(scope))
         if name is not None:
             filters["name"] = name
-        models = spec.service(client).list_all(
-            **{k: v for k, v in filters.items() if v is not None}
-        )
+        models = spec.service(client).list_all(**filters)
         if cli.fmt == "json":
             items = [output.dump_item(m, spec.exclude) for m in models]
             output.emit_json(output.list_document(spec.name, items))

@@ -38,3 +38,9 @@ def resolve_scope(client: MtnCloudClient, *, group: str | None, zone: str | None
     group_id = _resolve(group, client.groups.get_by_name)
     zone_id = _resolve(zone, client.zones.get_by_name)
     return Scope(group=group, zone=zone, group_id=group_id, zone_id=zone_id)
+
+
+def scope_filters(scope: Scope) -> dict[str, int]:
+    """API list filters for a scope; a ``0`` ID is a real value, only ``None`` is dropped."""
+    filters = {"zone_id": scope.zone_id, "group_id": scope.group_id}
+    return {k: v for k, v in filters.items() if v is not None}

@@ -103,9 +103,30 @@ def test_error_document_shape() -> None:
 
 def test_error_document_for_non_sdk_error() -> None:
     doc: dict[str, Any] = error_document(RuntimeError("boom"))
-    assert doc["error"]["type"] == "RuntimeError"
-    assert doc["error"]["message"] == "boom"
-    assert doc["error"]["status_code"] is None
+    assert doc["error"] == {
+        "type": "InternalError",
+        "message": "internal error; rerun with --debug for details",
+        "status_code": None,
+        "request_id": None,
+        "method": None,
+        "path": None,
+    }
+
+
+def test_error_document_does_not_read_attributes_of_unknown_errors() -> None:
+    exc = ImportError("x", path="/secret/path")
+    exc.status_code = 500  # type: ignore[attr-defined]
+    error = error_document(exc)["error"]
+    assert error["path"] is None
+    assert error["status_code"] is None
+
+
+@pytest.mark.parametrize("exc", [AmbiguousNameError("two matches"), MissingCredentialsError()])
+def test_error_document_for_cli_errors_keeps_message(exc: Exception) -> None:
+    error = error_document(exc)["error"]
+    assert error["type"] == type(exc).__name__
+    assert error["message"] == str(exc)
+    assert error["status_code"] is None
 
 
 def test_version_prints_package_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -160,11 +181,15 @@ def test_resolve_format(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_import_mtn_cloud_does_not_load_typer() -> None:
     result = subprocess.run(
-        [sys.executable, "-c", "import mtn_cloud, sys; print('typer' in sys.modules)"],
+        [
+            sys.executable,
+            "-c",
+            "import mtn_cloud, sys; print('typer' in sys.modules, 'rich' in sys.modules)",
+        ],
         capture_output=True,
         text=True,
     )
-    assert result.stdout == "False\n"
+    assert result.stdout == "False False\n"
 
 
 def test_main_without_typer_exits_2_with_hint(
@@ -198,7 +223,8 @@ def test_unexpected_error_exits_1_without_traceback(
     assert _run(["version", "-o", "json"]) == 1
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "kaboom" in captured.err
+    assert "kaboom" not in captured.err
+    assert "InternalError" in captured.err
     assert "Traceback" not in captured.err
 
 
@@ -658,4 +684,84 @@ def test_inventory_table_mode(capsys: pytest.CaptureFixture[str]) -> None:
 def test_inventory_internal_error_exits_1(capsys: pytest.CaptureFixture[str]) -> None:
     transport = _inventory_transport({"/networks": _resp({"networks": [{"id": "notint"}]})})
     assert _run_with(transport, ["inventory", "-o", "json"]) == 1
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("argv", [["instances", "list", "-o", "json"], ["inventory", "-o", "json"]])
+@pytest.mark.parametrize("debug", [False, True])
+def test_malformed_payload_does_not_leak_payload(
+    argv: list[str], debug: bool, capsys: pytest.CaptureFixture[str]
+) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {
+            "instances": [{"name": "web", "config": {"customOptions": {"dbPassword": "s3cret"}}}],
+            "networks": [],
+            "networkRouters": [],
+        }
+    )
+    assert _run_with(transport, (["--debug"] if debug else []) + argv) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    if debug:
+        assert "Traceback" in captured.err
+        return
+    assert "s3cret" not in captured.err
+    assert "input_value" not in captured.err
+    assert json.loads(captured.err)["error"]["type"] == "InternalError"
+
+
+@pytest.mark.parametrize("resource", ["instances", "networks", "routers"])
+def test_resource_without_subcommand_prints_help_and_exits_0(
+    resource: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert _run([resource]) == 0
+    captured = capsys.readouterr()
+    assert "list" in captured.out
+    assert "describe" in captured.out
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_and_version_without_extra_args_still_run(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(["version"]) == 0
+    capsys.readouterr()
+    transport = _inventory_transport()
+    assert _run_with(transport, ["inventory"]) == 0
+    assert transport.request.call_count == 3
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_group_zero_is_sent() -> None:
+    transport = _inventory_transport()
+    assert _run_with(transport, ["inventory", "--group", "0", "-o", "json"]) == 0
+    assert all(c.kwargs["params"]["siteId"] == 0 for c in transport.request.call_args_list)
+
+
+@pytest.mark.usefixtures("token")
+def test_list_group_zero_is_sent() -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"instances": []})
+    assert _run_with(transport, ["instances", "list", "--group", "0", "-o", "json"]) == 0
+    assert transport.request.call_args.kwargs["params"]["siteId"] == 0
+
+
+def test_invalid_environment_setting_names_the_variable(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("MTN_CLOUD_TIMEOUT", "0")
+    assert _run(["version"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "MTN_CLOUD_TIMEOUT" in captured.err
+    assert "--timeout" not in captured.err
+
+
+@pytest.mark.usefixtures("token")
+def test_ctrl_c_exits_130_with_empty_stdout(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.side_effect = KeyboardInterrupt()
+    assert _run_with(transport, ["instances", "list", "-o", "json"]) == 130
     assert capsys.readouterr().out == ""

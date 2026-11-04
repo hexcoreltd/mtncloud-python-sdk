@@ -10,7 +10,7 @@ from mtn_cloud import MtnCloudClient, __version__
 from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, EXIT_PARTIAL, error_document, exit_code_for
 from mtn_cloud.cli.registry import ResourceSpec
-from mtn_cloud.cli.scope import Scope
+from mtn_cloud.cli.scope import Scope, scope_filters
 from mtn_cloud.modern_exceptions import MtnCloudError
 
 INVENTORY_SCHEMA = "mtncloud.inventory/v1"
@@ -22,7 +22,7 @@ def collect_sections(
     client: MtnCloudClient, scope: Scope, specs: Sequence[ResourceSpec]
 ) -> list[Section]:
     """List every section, capturing SDK failures. Other errors propagate."""
-    filters = {k: v for k, v in {"zone_id": scope.zone_id, "group_id": scope.group_id}.items() if v}
+    filters = scope_filters(scope)
     sections: list[Section] = []
     for spec in specs:
         try:
