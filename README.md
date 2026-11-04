@@ -294,13 +294,20 @@ mtncloud version
 - `mtncloud instances|networks|routers list [--group] [--zone] [--name]`
 - `mtncloud <resource> describe <id-or-name> [--group] [--zone]`. An argument
   made only of digits is an ID and ignores `--group` and `--zone`. Anything
-  else must match one name exactly.
+  else must match one name exactly. `list --name` instead passes the name to
+  the API filter, which may match partially, while `describe` requires an
+  exact match.
 - `mtncloud inventory [--only R1,R2] [--group] [--zone]`
 - `mtncloud version`
 
 Global options are `-o/--output json|table`, `--base-url`, `--timeout` and
 `--debug`. `-o` may go before the command or after it, and the value after the
-command wins. Running `mtncloud` with no arguments prints help and exits 0.
+command wins. Running `mtncloud` with no arguments, or `mtncloud <resource>`
+with no subcommand, prints help on stdout and exits 0.
+
+An unexpected error is reported as `InternalError` with a generic message and
+exit code 1. Rerun with `--debug` for details. `--debug` prints a traceback
+that may include API response data, so don't share its output publicly.
 
 The default format is `table` when stdout is a terminal and `json` when it is
 piped. Table cells are rendered literally. Instance and network `config`

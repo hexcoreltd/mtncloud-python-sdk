@@ -150,8 +150,10 @@ printed to stderr as one readable line.
 
 Items are the SDK's Pydantic models dumped as JSON with snake_case field names
 (`model_dump(mode="json")`). Output therefore follows the SDK's tested models
-rather than raw API responses, and unknown API fields never leak through.
-`config` is excluded from instance and network items. Routers have no `config`
+rather than raw API responses. Unknown top-level API fields are dropped, but
+free-form dict fields such as `Instance.layout`, `cloud`, `group`, `volumes`
+and `tags` are emitted as the API returns them. Only `config` is excluded from
+instance and network items. Routers have no `config`
 field.
 
 ### Tables
