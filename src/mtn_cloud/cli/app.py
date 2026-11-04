@@ -167,6 +167,11 @@ def build_app(
             now=cli.now,
             sections=sections,
         )
+        failures = [r for _, r in sections if isinstance(r, Exception)]
+        if sections and len(failures) == len(sections):
+            # Every section failed: the command failed, so stdout stays empty.
+            output.emit_error(failures[0], cli.fmt)
+            return code
         if cli.fmt == "json":
             output.emit_json(document)
         else:

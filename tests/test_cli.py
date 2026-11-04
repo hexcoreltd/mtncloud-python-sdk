@@ -603,8 +603,9 @@ def test_inventory_all_failed_uses_first_error_code(
         }
     )
     assert _run_with(transport, ["inventory", "-o", "json"]) == 6
-    doc = json.loads(capsys.readouterr().out)
-    assert all("error" in s for s in doc["resources"].values())
+    out, err = _stderr_error(capsys)
+    assert out == ""
+    assert err["error"]["type"] == "AuthenticationError"
 
 
 @pytest.mark.usefixtures("token")
