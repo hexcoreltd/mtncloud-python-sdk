@@ -5,6 +5,7 @@ Typer is imported lazily so that ``import mtn_cloud`` never loads it.
 
 from __future__ import annotations
 
+import errno
 import os
 import sys
 import traceback
@@ -29,6 +30,19 @@ def _silence_stdout() -> None:
         os.dup2(devnull, sys.stdout.fileno())
     except (OSError, ValueError):
         pass
+
+
+def _is_epipe(exc: BaseException | None) -> bool:
+    """True if ``exc`` or anything in its context/cause chain is an EPIPE OSError."""
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        if isinstance(exc, BrokenPipeError) or (
+            isinstance(exc, OSError) and exc.errno == errno.EPIPE
+        ):
+            return True
+        exc = exc.__cause__ or exc.__context__
+    return False
 
 
 def main(
@@ -72,7 +86,7 @@ def main(
             result = cli_app(args=args, prog_name="mtncloud", standalone_mode=False)
         except SystemExit as exc:
             # Typer converts a real EPIPE into sys.exit(1) after swapping in flush wrappers.
-            if sys.stdout is not original_stdout:
+            if _is_epipe(exc) or sys.stdout is not original_stdout:
                 sys.stdout, sys.stderr = original_stdout, original_stderr
                 _silence_stdout()
                 return 0

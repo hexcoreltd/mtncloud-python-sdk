@@ -242,3 +242,28 @@ def test_bare_invocation_prints_help_and_exits_0(capsys: pytest.CaptureFixture[s
     captured = capsys.readouterr()
     assert "Usage" in captured.out
     assert captured.err == ""
+
+
+@pytest.mark.parametrize("argv", [["--help"], [], ["version", "-o", "json"], ["version"]])
+def test_real_closed_pipe_exits_0(argv: list[str], tmp_path: Path) -> None:
+    script = (
+        "import sys, time\\n"
+        "from mtn_cloud.cli import main\\n"
+        "time.sleep(1)\\n"
+        f"sys.exit(main({argv!r}))\\n"
+    ).replace("\\n", "\n")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("MTN_CLOUD_")}
+    env["PYTHONPATH"] = str(ROOT / "src")
+    proc = subprocess.Popen(
+        [sys.executable, "-c", script],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=tmp_path,
+        env=env,
+    )
+    assert proc.stdout is not None
+    proc.stdout.close()
+    assert proc.stderr is not None
+    stderr = proc.stderr.read().decode()
+    assert proc.wait(timeout=30) == 0
+    assert "Traceback" not in stderr
