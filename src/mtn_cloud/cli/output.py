@@ -5,9 +5,14 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Mapping
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+from pydantic import BaseModel
 
 from mtn_cloud.cli.errors import error_document
+
+if TYPE_CHECKING:
+    from mtn_cloud.cli.registry import Column
 
 OutputFormat = Literal["json", "table"]
 
@@ -45,3 +50,33 @@ def emit_error(exc: BaseException, fmt: OutputFormat) -> None:
             parts.append(f"request_id={err['request_id']}")
         sys.stderr.write(" ".join(parts) + "\n")
     sys.stderr.flush()
+
+
+def dump_item(model: BaseModel, exclude: frozenset[str]) -> dict[str, Any]:
+    return model.model_dump(mode="json", exclude=set(exclude))
+
+
+def list_document(resource: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "schema": "mtncloud.list/v1",
+        "resource": resource,
+        "count": len(items),
+        "items": items,
+    }
+
+
+def describe_document(resource: str, item: dict[str, Any]) -> dict[str, Any]:
+    return {"schema": "mtncloud.describe/v1", "resource": resource, "item": item}
+
+
+def emit_table(columns: tuple[Column, ...], models: list[Any]) -> None:
+    from rich.console import Console
+    from rich.table import Table
+
+    table = Table(*(column.header for column in columns))
+    for model in models:
+        table.add_row(
+            *("" if (v := c.value(model)) is None else str(v) for c in columns),
+        )
+    Console(file=sys.stdout, highlight=False).print(table)
+    sys.stdout.flush()

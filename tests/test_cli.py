@@ -34,6 +34,7 @@ from mtn_cloud.modern_exceptions import (
     ValidationError,
 )
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
+from mtn_cloud.transport import HttpResponse
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -267,3 +268,223 @@ def test_real_closed_pipe_exits_0(argv: list[str], tmp_path: Path) -> None:
     stderr = proc.stderr.read().decode()
     assert proc.wait(timeout=30) == 0
     assert "Traceback" not in stderr
+
+
+# --- list and describe -------------------------------------------------------------------
+
+PATHS = {
+    "instances": ("/instances", "instances", "instance"),
+    "networks": ("/networks", "networks", "network"),
+    "routers": ("/networks/routers", "networkRouters", "networkRouter"),
+}
+
+
+def _resp(body: Any, status: int = 200) -> HttpResponse:
+    return HttpResponse(status_code=status, headers={}, body=body)
+
+
+def _run_with(
+    transport: Mock, argv: list[str], monkeypatch: pytest.MonkeyPatch | None = None
+) -> int:
+    def factory(settings: ClientSettings) -> MtnCloudClient:
+        return MtnCloudClient(settings=settings, transport=transport)
+
+    return main(argv, client_factory=factory, now=_now)
+
+
+@pytest.fixture
+def token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MTN_CLOUD_TOKEN", "tok-test")
+
+
+def _stderr_error(capsys: pytest.CaptureFixture[str]) -> tuple[str, dict[str, Any]]:
+    captured = capsys.readouterr()
+    return captured.out, json.loads(captured.err)
+
+
+@pytest.mark.usefixtures("token")
+def test_instances_list_json_envelope(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {
+            "instances": [
+                {"id": 1, "name": "a", "status": "running", "ipAddress": "10.0.0.1"},
+                {"id": 2, "name": "b", "status": "stopped"},
+            ],
+            "meta": {"offset": 0, "max": 100, "total": 2},
+        }
+    )
+    assert _run_with(transport, ["instances", "list", "-o", "json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["schema"] == "mtncloud.list/v1"
+    assert doc["resource"] == "instances"
+    assert doc["count"] == 2
+    assert [item["id"] for item in doc["items"]] == [1, 2]
+    assert doc["items"][0]["ip_address"] == "10.0.0.1"
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("resource", ["instances", "networks", "routers"])
+def test_list_uses_scope_ids(resource: str) -> None:
+    path, list_key, _ = PATHS[resource]
+    transport = Mock()
+    transport.request.return_value = _resp({list_key: []})
+    argv = [resource, "list", "--group", "7", "--zone", "4", "-o", "json"]
+    assert _run_with(transport, argv) == 0
+    assert transport.request.call_count == 1
+    call = transport.request.call_args
+    assert call.args[1] == path
+    assert call.kwargs["params"]["siteId"] == 7
+    assert call.kwargs["params"]["zoneId"] == 4
+
+
+@pytest.mark.usefixtures("token")
+def test_list_name_filter_is_sent() -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"instances": []})
+    assert _run_with(transport, ["instances", "list", "--name", "web", "-o", "json"]) == 0
+    assert transport.request.call_args.kwargs["params"]["name"] == "web"
+
+
+@pytest.mark.usefixtures("token")
+def test_scope_names_resolve_to_ids() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _resp({"groups": [{"id": 7, "name": "prod"}]}),
+        _resp({"zones": [{"id": 4, "name": "lagos"}]}),
+        _resp({"instances": []}),
+    ]
+    argv = ["instances", "list", "--group", "prod", "--zone", "lagos", "-o", "json"]
+    assert _run_with(transport, argv) == 0
+    params = transport.request.call_args_list[-1].kwargs["params"]
+    assert params["siteId"] == 7
+    assert params["zoneId"] == 4
+
+
+@pytest.mark.usefixtures("token")
+def test_ambiguous_group_exits_5(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {"groups": [{"id": 7, "name": "prod"}, {"id": 8, "name": "prod"}]}
+    )
+    assert _run_with(transport, ["instances", "list", "--group", "prod", "-o", "json"]) == 5
+    out, err = _stderr_error(capsys)
+    assert out == ""
+    assert err["error"]["type"] == "AmbiguousNameError"
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("resource", ["instances", "networks", "routers"])
+def test_describe_by_name_and_id(resource: str, capsys: pytest.CaptureFixture[str]) -> None:
+    path, list_key, item_key = PATHS[resource]
+    transport = Mock()
+    transport.request.return_value = _resp({list_key: [{"id": 42, "name": "web"}]})
+    assert _run_with(transport, [resource, "describe", "web", "-o", "json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["schema"] == "mtncloud.describe/v1"
+    assert doc["resource"] == resource
+    assert doc["item"]["id"] == 42
+    assert transport.request.call_args.kwargs["params"]["name"] == "web"
+
+    transport = Mock()
+    transport.request.return_value = _resp({item_key: {"id": 42, "name": "web"}})
+    assert _run_with(transport, [resource, "describe", "42", "-o", "json"]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["item"]["id"] == 42
+    assert transport.request.call_count == 1
+    assert transport.request.call_args.args[:2] == ("GET", f"{path}/42")
+
+
+@pytest.mark.usefixtures("token")
+def test_describe_numeric_argument_is_id(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"message": "not found"}, 404)
+    assert _run_with(transport, ["instances", "describe", "1234", "-o", "json"]) == 4
+    assert transport.request.call_count == 1
+    assert transport.request.call_args.args[:2] == ("GET", "/instances/1234")
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.usefixtures("token")
+def test_describe_not_found_exits_4(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"instances": []})
+    assert _run_with(transport, ["instances", "describe", "ghost", "-o", "json"]) == 4
+    out, err = _stderr_error(capsys)
+    assert out == ""
+    assert err["error"]["type"] == "LookupNotFoundError"
+
+
+@pytest.mark.usefixtures("token")
+def test_describe_ambiguous_exits_5(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {"instances": [{"id": 1, "name": "web"}, {"id": 2, "name": "web"}]}
+    )
+    assert _run_with(transport, ["instances", "describe", "web", "-o", "json"]) == 5
+    out, err = _stderr_error(capsys)
+    assert out == ""
+    assert err["error"]["type"] == "AmbiguousNameError"
+    assert "[1, 2]" in err["error"]["message"]
+
+
+@pytest.mark.usefixtures("token")
+def test_instance_config_is_excluded(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {
+            "instances": [
+                {
+                    "id": 1,
+                    "name": "db",
+                    "config": {"customOptions": {"dbPassword": "s3cret"}},
+                }
+            ]
+        }
+    )
+    assert _run_with(transport, ["instances", "list", "-o", "json"]) == 0
+    out = capsys.readouterr().out
+    assert "config" not in json.loads(out)["items"][0]
+    assert "s3cret" not in out
+
+
+@pytest.mark.usefixtures("token")
+def test_table_output_on_terminal(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(output, "stdout_is_terminal", lambda: True)
+    transport = Mock()
+    transport.request.return_value = _resp({"instances": [{"id": 1, "name": "a"}]})
+    assert _run_with(transport, ["instances", "list"]) == 0
+    out = capsys.readouterr().out
+    for header in ("ID", "NAME", "STATUS"):
+        assert header in out
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(out)
+
+
+@pytest.mark.parametrize("debug", [False, True])
+@pytest.mark.parametrize("failure", ["401", "raises"])
+def test_token_never_printed(
+    failure: str, debug: bool, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("MTN_CLOUD_TOKEN", "tok-SENTINEL-123")
+    transport = Mock()
+    if failure == "401":
+        transport.request.return_value = _resp({"message": "unauthorized"}, 401)
+    else:
+        transport.request.side_effect = RuntimeError("boom")
+    argv = (["--debug"] if debug else []) + ["instances", "list", "-o", "json"]
+    assert _run_with(transport, argv) in (1, 6)
+    captured = capsys.readouterr()
+    assert "tok-SENTINEL-123" not in captured.out
+    assert "tok-SENTINEL-123" not in captured.err
+
+
+def test_missing_credentials_exit_6_without_request(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    assert _run_with(transport, ["instances", "list", "-o", "json"]) == 6
+    transport.request.assert_not_called()
+    out, err = _stderr_error(capsys)
+    assert out == ""
+    assert err["error"]["type"] == "MissingCredentialsError"

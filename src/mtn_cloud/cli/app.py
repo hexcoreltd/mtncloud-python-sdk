@@ -12,8 +12,11 @@ from pydantic import ValidationError as PydanticValidationError
 
 from mtn_cloud import ClientSettings, MtnCloudClient, __version__
 from mtn_cloud.cli import output
-from mtn_cloud.cli.errors import EXIT_OK, MissingCredentialsError
+from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentialsError
 from mtn_cloud.cli.output import OutputFormat
+from mtn_cloud.cli.registry import REGISTRY, ResourceSpec
+from mtn_cloud.cli.scope import is_id, resolve_scope
+from mtn_cloud.modern_exceptions import NotFoundError
 
 ClientFactory = Callable[[ClientSettings], MtnCloudClient]
 
@@ -120,4 +123,85 @@ def build_app(
             typer.echo(f"mtncloud {__version__}")
         return EXIT_OK
 
+    for spec in REGISTRY.values():
+        app.add_typer(_resource_app(spec, state), name=spec.name)
+
     return app
+
+
+def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
+    """Build the shared ``list`` and ``describe`` sub-app for one registry entry."""
+    sub = typer.Typer(
+        help=f"List and describe {spec.name}.",
+        pretty_exceptions_enable=False,
+        no_args_is_help=True,
+        add_completion=False,
+    )
+
+    def apply_format(cli: CliContext, requested: str | None) -> None:
+        if requested is not None:
+            cli.fmt = _validate_format(requested)
+            state.fmt = cli.fmt
+
+    @sub.command("list")
+    def list_(
+        ctx: typer.Context,
+        group: str | None = typer.Option(None, "--group", help="Group name or ID."),  # noqa: UP007
+        zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
+        name: str | None = typer.Option(None, "--name", help="Filter by name."),  # noqa: UP007
+        output_format: str | None = typer.Option(  # noqa: UP007
+            None, "-o", "--output", help="Output format: json or table."
+        ),
+    ) -> int:
+        """List resources."""
+        cli: CliContext = ctx.obj
+        apply_format(cli, output_format)
+        client = cli.client()
+        scope = resolve_scope(client, group=group, zone=zone)
+        filters: dict[str, Any] = {"zone_id": scope.zone_id, "group_id": scope.group_id}
+        if name is not None:
+            filters["name"] = name
+        models = spec.service(client).list_all(
+            **{k: v for k, v in filters.items() if v is not None}
+        )
+        if cli.fmt == "json":
+            items = [output.dump_item(m, spec.exclude) for m in models]
+            output.emit_json(output.list_document(spec.name, items))
+        else:
+            output.emit_table(spec.columns, models)
+        return EXIT_OK
+
+    @sub.command("describe")
+    def describe(
+        ctx: typer.Context,
+        target: str = typer.Argument(..., metavar="ID_OR_NAME", help="Numeric ID or exact name."),
+        group: str | None = typer.Option(None, "--group", help="Group name or ID."),  # noqa: UP007
+        zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
+        output_format: str | None = typer.Option(  # noqa: UP007
+            None, "-o", "--output", help="Output format: json or table."
+        ),
+    ) -> int:
+        """Describe one resource by numeric ID or exact name."""
+        cli: CliContext = ctx.obj
+        apply_format(cli, output_format)
+        client = cli.client()
+        service = spec.service(client)
+        if is_id(target):
+            model = service.get(int(target))
+        else:
+            scope = resolve_scope(client, group=group, zone=zone)
+            try:
+                model = service.get_by_name(target, zone_id=scope.zone_id, group_id=scope.group_id)
+            except NotFoundError:
+                raise
+            except ValueError as exc:
+                raise AmbiguousNameError(str(exc)) from exc
+        if cli.fmt == "json":
+            output.emit_json(
+                output.describe_document(spec.name, output.dump_item(model, spec.exclude))
+            )
+        else:
+            output.emit_table(spec.columns, [model])
+        return EXIT_OK
+
+    return sub
