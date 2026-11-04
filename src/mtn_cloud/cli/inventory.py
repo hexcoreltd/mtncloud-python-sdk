@@ -11,29 +11,30 @@ from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, EXIT_PARTIAL, error_document, exit_code_for
 from mtn_cloud.cli.registry import ResourceSpec
 from mtn_cloud.cli.scope import Scope
+from mtn_cloud.modern_exceptions import MtnCloudError
 
 INVENTORY_SCHEMA = "mtncloud.inventory/v1"
 
-Section = tuple[ResourceSpec, "list[Any] | Exception"]
+Section = tuple[ResourceSpec, "list[Any] | MtnCloudError"]
 
 
 def collect_sections(
     client: MtnCloudClient, scope: Scope, specs: Sequence[ResourceSpec]
 ) -> list[Section]:
-    """List every section, capturing per-section failures. Ctrl-C still propagates."""
+    """List every section, capturing SDK failures. Other errors propagate."""
     filters = {k: v for k, v in {"zone_id": scope.zone_id, "group_id": scope.group_id}.items() if v}
     sections: list[Section] = []
     for spec in specs:
         try:
             sections.append((spec, list(spec.service(client).list_all(**filters))))
-        except Exception as exc:
+        except MtnCloudError as exc:
             sections.append((spec, exc))
     return sections
 
 
 def exit_code_for_sections(sections: Sequence[Section]) -> int:
     """0 if all succeeded, 3 if some failed, else the first failure's code."""
-    errors = [result for _, result in sections if isinstance(result, Exception)]
+    errors = [result for _, result in sections if isinstance(result, MtnCloudError)]
     if not errors:
         return EXIT_OK
     if len(errors) < len(sections):
@@ -54,7 +55,7 @@ def build_inventory(
     collected = list(sections) if sections is not None else collect_sections(client, scope, specs)
     resources: dict[str, Any] = {}
     for spec, result in collected:
-        if isinstance(result, Exception):
+        if isinstance(result, MtnCloudError):
             resources[spec.name] = {"error": error_document(result)["error"]}
         else:
             items = [output.dump_item(m, spec.exclude) for m in result]

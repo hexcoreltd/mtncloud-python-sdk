@@ -652,3 +652,10 @@ def test_inventory_table_mode(capsys: pytest.CaptureFixture[str]) -> None:
     captured = capsys.readouterr()
     assert "instances" in captured.out
     assert "ForbiddenError" in captured.err
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_internal_error_exits_1(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport({"/networks": _resp({"networks": [{"id": "notint"}]})})
+    assert _run_with(transport, ["inventory", "-o", "json"]) == 1
+    assert capsys.readouterr().out == ""

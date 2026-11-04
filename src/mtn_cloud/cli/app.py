@@ -18,7 +18,7 @@ from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentials
 from mtn_cloud.cli.output import OutputFormat
 from mtn_cloud.cli.registry import REGISTRY, ResourceSpec
 from mtn_cloud.cli.scope import is_id, resolve_scope
-from mtn_cloud.modern_exceptions import AmbiguousLookupError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, MtnCloudError
 
 ClientFactory = Callable[[ClientSettings], MtnCloudClient]
 
@@ -167,7 +167,7 @@ def build_app(
             now=cli.now,
             sections=sections,
         )
-        failures = [r for _, r in sections if isinstance(r, Exception)]
+        failures = [r for _, r in sections if isinstance(r, MtnCloudError)]
         if sections and len(failures) == len(sections):
             # Every section failed: the command failed, so stdout stays empty.
             output.emit_error(failures[0], cli.fmt)
@@ -176,7 +176,7 @@ def build_app(
             output.emit_json(document)
         else:
             for spec, result in sections:
-                if isinstance(result, Exception):
+                if isinstance(result, MtnCloudError):
                     output.emit_error(result, "table")
                 else:
                     sys.stdout.write(f"{spec.name}\n")
