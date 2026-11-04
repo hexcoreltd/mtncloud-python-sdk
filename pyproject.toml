@@ -9,10 +9,10 @@ description = "Production-grade Python SDK for MTN Cloud"
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Hakeem", email = "hello@a4m.dev" }
+    { name = "Hexcore Ltd", email = "hello@a4m.dev" }
 ]
 maintainers = [
-    { name = "Hakeem", email = "hello@a4m.dev" }
+    { name = "Hexcore Ltd", email = "hello@a4m.dev" }
 ]
 keywords = [
     "mtn",
@@ -64,10 +64,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/aoamusat/mtncloud-python-sdk"
-Documentation = "https://github.com/aoamusat/mtncloud-python-sdk#readme"
-Repository = "https://github.com/aoamusat/mtncloud-python-sdk"
-Issues = "https://github.com/aoamusat/mtncloud-python-sdk/issues"
+Homepage = "https://github.com/hexcoreltd/mtncloud-python-sdk"
+Documentation = "https://github.com/hexcoreltd/mtncloud-python-sdk#readme"
+Repository = "https://github.com/hexcoreltd/mtncloud-python-sdk"
+Issues = "https://github.com/hexcoreltd/mtncloud-python-sdk/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mtn_cloud"]

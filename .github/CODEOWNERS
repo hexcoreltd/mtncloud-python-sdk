@@ -1,11 +1,11 @@
 # Default owner for all repository changes.
-* @aoamusat
+* @hexcoreltd/maintainers
 
 # Security-sensitive and release-related files require explicit review.
-/.github/ @aoamusat
-/pyproject.toml @aoamusat
-/uv.lock @aoamusat
-/src/mtn_cloud/auth/ @aoamusat
-/src/mtn_cloud/core.py @aoamusat
-/src/mtn_cloud/modern_client.py @aoamusat
-/src/mtn_cloud/transport/ @aoamusat
+/.github/ @hexcoreltd/maintainers
+/pyproject.toml @hexcoreltd/maintainers
+/uv.lock @hexcoreltd/maintainers
+/src/mtn_cloud/auth/ @hexcoreltd/maintainers
+/src/mtn_cloud/core.py @hexcoreltd/maintainers
+/src/mtn_cloud/modern_client.py @hexcoreltd/maintainers
+/src/mtn_cloud/transport/ @hexcoreltd/maintainers

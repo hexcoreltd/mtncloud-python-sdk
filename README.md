@@ -7,6 +7,10 @@
 A typed, synchronous Python SDK for the [MTN Cloud Console API](https://console.cloud.mtn.ng/documentation/).
 The package is published as `mtncloud-python-sdk` and imported in Python as
 `mtn_cloud`.
+
+This unofficial SDK is maintained by [Hexcore Ltd](https://github.com/hexcoreltd),
+a Nigerian technology consulting company focused on cloud infrastructure,
+automation, and migration engineering.
 It provides a small, explicit client for tenant discovery, compute instance
 management, networking, security groups, and long-running provisioning
 operations.

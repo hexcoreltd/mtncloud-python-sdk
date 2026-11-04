@@ -60,5 +60,5 @@ First modernized release of the MTN Cloud Python SDK.
   verified with explicit cleanup.
 - Source distribution and wheel build successfully.
 
-[Unreleased]: https://github.com/aoamusat/mtncloud-python-sdk/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/aoamusat/mtncloud-python-sdk/releases/tag/v0.1.0
+[Unreleased]: https://github.com/hexcoreltd/mtncloud-python-sdk/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/hexcoreltd/mtncloud-python-sdk/releases/tag/v0.1.0

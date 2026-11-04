@@ -363,14 +363,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Plan MTN Cloud changes
-        uses: aoamusat/mtncloud-python-sdk/.github/actions/mtncloud@v1
+        uses: hexcoreltd/mtncloud-python-sdk/.github/actions/mtncloud@v1
         with:
           command: plan
           config: infrastructure/mtncloud.yaml
           api-key: ${{ secrets.MTN_CLOUD_API_KEY }}
 
       - name: Apply MTN Cloud changes
-        uses: aoamusat/mtncloud-python-sdk/.github/actions/mtncloud@v1
+        uses: hexcoreltd/mtncloud-python-sdk/.github/actions/mtncloud@v1
         with:
           command: apply
           config: infrastructure/mtncloud.yaml
