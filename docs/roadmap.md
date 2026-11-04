@@ -213,6 +213,8 @@ Implemented in the current development line:
 - Modern network create, update, and delete operations
 - High-level floating-IP request support through instance external-network
   configuration
+- Modern instance snapshot operations
+- Modern backup configuration, job, execution, and result operations
 - Modern router listing and retrieval
 - External gateway discovery
 - MTN neutron-router creation and deletion
@@ -221,6 +223,8 @@ Implemented in the current development line:
 Still to implement and verify:
 
 - Subnets CRUD and IP allocation behavior
+- Standalone volume CRUD and attachment operations, once their API contract is
+  verified
 - Standalone floating-IP allocation/association endpoints, if exposed by the
   current MTN Cloud API contract
 - Routers and external networks

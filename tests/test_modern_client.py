@@ -7,6 +7,7 @@ from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
 from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
 from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.models.network import NetworkCreate, NetworkUpdate
+from mtn_cloud.models.snapshot import SnapshotCreate
 from mtn_cloud.modern_exceptions import TimeoutError as ModernTimeoutError
 from mtn_cloud.modern_exceptions import AuthenticationError
 from mtn_cloud.transport import HttpResponse
@@ -480,6 +481,49 @@ def test_routers_service_creates_and_reads_router() -> None:
     assert router.status == "ok"
     assert transport.request.call_args_list[0].args[:2] == ("POST", "/networks/routers")
     assert transport.request.call_args_list[0].kwargs["json"]["networkRouter"]["poolId"] == "pool-214"
+
+
+def test_instances_service_manages_snapshots() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(200, {}, {"snapshots": [{"id": 80, "name": "before-upgrade"}]}),
+        HttpResponse(201, {}, {"snapshot": {"id": 81, "name": "after-upgrade"}}),
+        HttpResponse(202, {}, {}),
+        HttpResponse(204, {}, None),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    snapshots = client.instances.list_snapshots(100)
+    created = client.instances.create_snapshot(100, SnapshotCreate(name="after-upgrade"))
+    assert client.instances.revert_snapshot(100, 81) is True
+    assert client.instances.delete_snapshot(100, 81) is True
+
+    assert snapshots[0].id == 80
+    assert created.name == "after-upgrade"
+    assert transport.request.call_args_list[1].kwargs["json"] == {
+        "snapshot": {"name": "after-upgrade"}
+    }
+
+
+def test_backups_service_lists_and_executes_backups() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        HttpResponse(200, {}, {"backups": [{"id": 90, "name": "nightly", "status": "active"}]}),
+        HttpResponse(200, {}, {"results": [{"id": 91, "backupId": 90, "status": "success"}]}),
+        HttpResponse(202, {}, {"success": True}),
+        HttpResponse(200, {}, {"jobs": [{"id": 92, "name": "nightly-job"}]}),
+    ]
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    backup = client.backups.list()[0]
+    result = client.backups.list_results(backup.id)[0]
+    execution = client.backups.execute(backup.id)
+    job = client.backups.list_jobs()[0]
+
+    assert backup.name == "nightly"
+    assert result.status == "success"
+    assert execution["success"] is True
+    assert job.id == 92
 
 
 def test_security_groups_service_manages_groups_and_rules() -> None:

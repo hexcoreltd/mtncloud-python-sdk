@@ -7,6 +7,7 @@ from mtn_cloud.auth import CredentialProvider
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.user import User
 from mtn_cloud.services.groups import GroupsService
+from mtn_cloud.services.backups import BackupsService
 from mtn_cloud.services.instance_types import InstanceTypesService
 from mtn_cloud.services.instances import InstancesService
 from mtn_cloud.services.networks import NetworksService
@@ -57,6 +58,7 @@ class MtnCloudClient:
         self._resource_pools: ResourcePoolsService | None = None
         self._security_groups: SecurityGroupsService | None = None
         self._routers: RoutersService | None = None
+        self._backups: BackupsService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -147,6 +149,14 @@ class MtnCloudClient:
                 clock=self._clock,
             )
         return self._routers
+
+    @property
+    def backups(self) -> BackupsService:
+        """Access configured backups and backup execution results."""
+
+        if self._backups is None:
+            self._backups = BackupsService(self._core)
+        return self._backups
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

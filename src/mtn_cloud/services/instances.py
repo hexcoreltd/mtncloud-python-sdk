@@ -12,6 +12,7 @@ from mtn_cloud.models.instance import (
     InstanceUpdate,
     InstanceVolume,
 )
+from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
 from mtn_cloud.models.group import Group
 from mtn_cloud.models.cloud import Cloud
 from mtn_cloud.models.plan import ServicePlan
@@ -191,6 +192,42 @@ class InstancesService(Service[Instance]):
             poll_interval=poll_interval,
             on_status=on_status,
         )
+
+    def list_snapshots(self, instance_id: int) -> list[Snapshot]:
+        """List snapshots belonging to an instance."""
+
+        body = self._core.request("GET", f"{self.path}/{instance_id}/snapshots")
+        if not isinstance(body, dict) or not isinstance(body.get("snapshots"), list):
+            raise MtnCloudError("Invalid snapshot response: expected a 'snapshots' list")
+        return [Snapshot.model_validate(item) for item in body["snapshots"]]
+
+    def create_snapshot(
+        self,
+        instance_id: int,
+        request: SnapshotCreate,
+    ) -> Snapshot:
+        """Create an instance snapshot."""
+
+        body = self._core.request(
+            "POST",
+            f"{self.path}/{instance_id}/snapshots",
+            json=request.to_api_payload(),
+        )
+        if not isinstance(body, dict):
+            raise MtnCloudError("Invalid snapshot response")
+        return Snapshot.model_validate(body.get("snapshot", body))
+
+    def revert_snapshot(self, instance_id: int, snapshot_id: int) -> bool:
+        """Request restoration of an instance snapshot."""
+
+        self._core.request("PUT", f"{self.path}/{instance_id}/revert-snapshot/{snapshot_id}")
+        return True
+
+    def delete_snapshot(self, instance_id: int, snapshot_id: int) -> bool:
+        """Delete an instance snapshot."""
+
+        self._core.request("DELETE", f"{self.path}/{instance_id}/snapshots/{snapshot_id}")
+        return True
 
     def provision(
         self,

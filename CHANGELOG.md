@@ -17,6 +17,9 @@ would normally require a major release in a mature stable SDK.
 - Modern network create, update, and delete operations using typed payloads.
 - High-level instance provisioning support for MTN external-network/floating-IP
   assignment through `external_network_id`.
+- Modern snapshot operations for listing, creating, reverting, and deleting
+  instance snapshots.
+- Modern backup operations for configurations, executions, jobs, and results.
 
 ### Planned
 
