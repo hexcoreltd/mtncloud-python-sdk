@@ -554,6 +554,29 @@ def test_volumes_service_discovers_and_filters_attached_volumes() -> None:
     }
 
 
+def test_volumes_service_discovers_enabled_volume_types() -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        200,
+        {},
+        {
+            "storageVolumeTypes": [
+                {"id": 11, "code": "openstackVolume", "name": "OpenStack Volume", "enabled": True},
+                {"id": 12, "code": "disabled", "name": "Disabled", "enabled": False},
+            ]
+        },
+    )
+    client = MtnCloudClient(token="secret", transport=transport)
+
+    types = client.volumes.list_types()
+
+    assert [item.code for item in types] == ["openstackVolume"]
+    assert transport.request.call_args.kwargs["params"] == {
+        "offset": 0,
+        "category": "volume",
+    }
+
+
 def test_security_groups_service_manages_groups_and_rules() -> None:
     transport = Mock()
     transport.request.side_effect = [

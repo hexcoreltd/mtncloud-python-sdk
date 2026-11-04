@@ -57,7 +57,7 @@ from mtn_cloud.models.storage_bucket import (
 )
 from mtn_cloud.models.user import User, UserRole
 from mtn_cloud.models.virtual_image import VirtualImage
-from mtn_cloud.models.volume import StorageVolume, Volume
+from mtn_cloud.models.volume import StorageVolume, StorageVolumeType, Volume
 
 __all__ = [
     # Base
@@ -96,6 +96,7 @@ __all__ = [
     # Volume
     "Volume",
     "StorageVolume",
+    "StorageVolumeType",
     # Group
     "Group",
     # Cloud

@@ -44,3 +44,18 @@ class StorageVolume(Resource):
 
 # Backwards-compatible name retained for earlier SDK versions.
 Volume = StorageVolume
+
+
+class StorageVolumeType(Resource):
+    """A storage-volume provider type and its configurable options."""
+
+    category: str | None = None
+    code: str | None = None
+    description: str | None = None
+    enabled: bool = True
+    default_type: bool = Field(default=False, alias="defaultType")
+    custom_label: bool = Field(default=False, alias="customLabel")
+    custom_size: bool = Field(default=False, alias="customSize")
+    configurable_iops: bool = Field(default=False, alias="configurableIOPS")
+    has_datastore: bool = Field(default=False, alias="hasDatastore")
+    option_types: list[dict[str, Any]] = Field(default_factory=list, alias="optionTypes")
