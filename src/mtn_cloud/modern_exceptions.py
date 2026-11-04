@@ -30,8 +30,24 @@ class AuthenticationError(MtnCloudError):
     """The request was not authenticated."""
 
 
+class ForbiddenError(MtnCloudError):
+    """The credential is valid but not permitted to perform the request."""
+
+
 class NotFoundError(MtnCloudError):
     """The requested resource does not exist."""
+
+
+class LookupNotFoundError(NotFoundError, ValueError):
+    """A client-side lookup within a verified collection found no match.
+
+    Also a ``ValueError`` so callers written against earlier releases, where
+    these lookups raised ``ValueError``, keep working.
+    """
+
+
+class ConflictError(MtnCloudError):
+    """The request conflicts with the current state of the resource."""
 
 
 class ValidationError(MtnCloudError):

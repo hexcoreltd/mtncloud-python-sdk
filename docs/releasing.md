@@ -9,7 +9,9 @@ publishes the same files to PyPI.
 Before creating a release:
 
 1. Confirm the working tree is clean and the default branch is current.
-2. Update `version` in `pyproject.toml`.
+2. Update `version` in `pyproject.toml`, `__version__` in
+   `src/mtn_cloud/_version.py`, and the README version badge.
+   `tests/test_version.py` fails if they disagree.
 3. Update `CHANGELOG.md` with the release date and user-visible changes.
 4. Run the local checks:
 

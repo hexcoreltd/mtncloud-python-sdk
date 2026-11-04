@@ -16,7 +16,7 @@ from mtn_cloud.models.instance import (
 )
 from mtn_cloud.models.plan import ServicePlan
 from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
-from mtn_cloud.modern_exceptions import MtnCloudError, TimeoutError
+from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError, TimeoutError
 from mtn_cloud.services.base import Page, Service
 from mtn_cloud.services.groups import GroupsService
 from mtn_cloud.services.instance_types import InstanceTypesService
@@ -386,7 +386,7 @@ class InstancesService(Service[Instance]):
                 if type(layout_id) is int:
                     return layout_id
                 raise ValueError(f"Layout '{layout}' has an invalid identifier")
-            raise ValueError(
+            raise LookupNotFoundError(
                 f"Layout '{layout}' not found for instance type '{instance_type.code}'"
             )
         default_layout_id: object = instance_type.default_layout_id

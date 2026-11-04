@@ -275,6 +275,8 @@ Modern client operations raise exceptions from `mtn_cloud.modern_exceptions`:
 from mtn_cloud import MtnCloudClient
 from mtn_cloud.modern_exceptions import (
     AuthenticationError,
+    ConflictError,
+    ForbiddenError,
     MtnCloudError,
     NotFoundError,
     RateLimitError,
@@ -288,8 +290,12 @@ try:
         cloud.instances.get(4737)
 except AuthenticationError:
     print("The credential is missing or invalid")
+except ForbiddenError:
+    print("The credential is not permitted to perform this operation")
 except NotFoundError:
     print("The resource does not exist or is not visible to this tenant")
+except ConflictError:
+    print("The request conflicts with the resource's current state")
 except RateLimitError:
     print("The API asked the caller to slow down")
 except (TimeoutError, TransportError):
@@ -300,9 +306,32 @@ except MtnCloudError as exc:
     print(f"MTN Cloud request failed: {exc}")
 ```
 
+Name-based helpers such as `networks.get_subnet_by_name`,
+`networks.get_pool_ip`, `volumes.get_by_name`, `routers.get_interface`, and
+layout-name resolution during `instances.provision` raise
+`LookupNotFoundError` when nothing matches. It subclasses `NotFoundError` and
+is also a `ValueError`, so code written against earlier releases keeps
+working. Ambiguous matches still raise a plain `ValueError`.
+
+Because Python uses the first matching `except` clause, a lookup miss now
+reaches an `except NotFoundError:` or `except MtnCloudError:` clause listed
+before an `except ValueError:` clause.
+
 The package also contains the original legacy client and exception hierarchy
 for compatibility. New integrations should use `MtnCloudClient`,
 `ClientSettings`, the typed services, and `mtn_cloud.modern_exceptions`.
+
+The top-level `mtn_cloud` namespace exports both hierarchies, and their names
+are easy to confuse:
+
+| Top-level name | Hierarchy | Raised by |
+| --- | --- | --- |
+| `MtnCloudError`, `TransportError`, `ModernTimeoutError` | Modern | `MtnCloudClient` |
+| `MTNCloudError` and all other exception names | Legacy | `MTNCloud` |
+
+`ModernTimeoutError` is `mtn_cloud.modern_exceptions.TimeoutError`, renamed at
+the top level so it does not shadow Python's built-in `TimeoutError`. To avoid
+confusion, import modern exceptions from `mtn_cloud.modern_exceptions`.
 
 ## Testing and development
 
@@ -346,7 +375,8 @@ git diff --check
 Releases are tag-driven and publish the exact distributions produced by CI.
 To prepare a release:
 
-1. Update `version` in `pyproject.toml`.
+1. Update `version` in `pyproject.toml`, `__version__` in
+   `src/mtn_cloud/_version.py`, and the version badge at the top of this README.
 2. Move the completed entries in `CHANGELOG.md` into a new version section.
 3. Run the unit, quality, and build checks locally.
 4. Commit the release preparation changes.
