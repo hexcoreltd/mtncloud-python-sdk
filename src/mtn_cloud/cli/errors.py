@@ -53,20 +53,32 @@ def exit_code_for(exc: BaseException) -> int:
     return EXIT_INTERNAL
 
 
+INTERNAL_MESSAGE = "internal error; rerun with --debug for details"
+
+
 def error_document(exc: BaseException) -> dict[str, Any]:
-    """Build the ``mtncloud.error/v1`` document from sanitized fields only."""
-    if isinstance(exc, MtnCloudError):
-        message = exc.message
-    else:
-        message = str(exc)
-    return {
-        "schema": ERROR_SCHEMA,
-        "error": {
-            "type": type(exc).__name__,
-            "message": message,
-            "status_code": getattr(exc, "status_code", None),
-            "request_id": getattr(exc, "request_id", None),
-            "method": getattr(exc, "method", None),
-            "path": getattr(exc, "path", None),
-        },
+    """Build the ``mtncloud.error/v1`` document from sanitized fields only.
+
+    Only SDK errors and the CLI's own errors contribute their message; any other
+    exception may embed API payload values, so it is reported generically.
+    """
+    error: dict[str, Any] = {
+        "type": "InternalError",
+        "message": INTERNAL_MESSAGE,
+        "status_code": None,
+        "request_id": None,
+        "method": None,
+        "path": None,
     }
+    if isinstance(exc, MtnCloudError):
+        error.update(
+            type=type(exc).__name__,
+            message=exc.message,
+            status_code=exc.status_code,
+            request_id=exc.request_id,
+            method=exc.method,
+            path=exc.path,
+        )
+    elif isinstance(exc, (AmbiguousNameError, MissingCredentialsError)):
+        error.update(type=type(exc).__name__, message=str(exc))
+    return {"schema": ERROR_SCHEMA, "error": error}
