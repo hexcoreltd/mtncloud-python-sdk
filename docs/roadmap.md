@@ -426,6 +426,10 @@ mutation services.
 
 - Official `mtncloud` command-line interface (read-only `list`, `describe`,
   `inventory` and `version` done; `plan` and floating IPs are the next CLI items)
+- Volume list/describe and opt-in volume inventory, with zone-only scope,
+  attachment evidence and scalar-field output. Existing default inventory
+  remains unchanged. Mocked CLI regression coverage is complete; live verification
+  is deferred until control-plane recovery.
 - JSON output for automation
 - Human-readable tables for operators
 - `plan`, `apply`, `wait`, `destroy`, and `inventory` commands

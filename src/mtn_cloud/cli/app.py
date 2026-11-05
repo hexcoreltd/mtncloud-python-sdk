@@ -76,7 +76,7 @@ def _validate_format(requested: str | None) -> OutputFormat:
 
 def _select_specs(only: str | None) -> list[ResourceSpec]:
     if only is None:
-        return list(REGISTRY.values())
+        return [spec for spec in REGISTRY.values() if spec.inventory_default]
     names = [part.strip() for part in only.split(",") if part.strip()]
     unknown = [n for n in names if n not in REGISTRY]
     if unknown or not names:
@@ -85,6 +85,15 @@ def _select_specs(only: str | None) -> list[ResourceSpec]:
             param_hint="--only",
         )
     return [spec for name, spec in REGISTRY.items() if name in names]
+
+
+def _validate_group_scope(specs: list[ResourceSpec], group: str | None) -> None:
+    unsupported = [spec.name for spec in specs if not spec.supports_group]
+    if group is not None and unsupported:
+        raise typer.BadParameter(
+            f"{', '.join(unsupported)} do not support group scope; use --zone instead",
+            param_hint="--group",
+        )
 
 
 def build_app(
@@ -153,12 +162,13 @@ def build_app(
             None, "-o", "--output", help="Output format: json or table."
         ),
     ) -> int:
-        """Snapshot every resource section; exit 3 if some sections fail."""
+        """Snapshot selected resource sections; exit 3 if some sections fail."""
         cli: CliContext = ctx.obj
         if output_format is not None:
             cli.fmt = _validate_format(output_format)
             state.fmt = cli.fmt
         specs = _select_specs(only)
+        _validate_group_scope(specs, group)
         client = cli.client()
         scope = resolve_scope(client, group=group, zone=zone)
         sections = inventory_module.collect_sections(client, scope, specs)
@@ -214,9 +224,17 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
     @sub.command("list")
     def list_(
         ctx: typer.Context,
-        group: str | None = typer.Option(None, "--group", help="Group name or ID."),  # noqa: UP007
+        group: str | None = typer.Option(  # noqa: UP007
+            None, "--group", help="Group name or ID.", hidden=not spec.supports_group
+        ),
         zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
-        name: str | None = typer.Option(None, "--name", help="Filter by name."),  # noqa: UP007
+        name: str | None = typer.Option(  # noqa: UP007
+            None,
+            "--name",
+            help="Search metadata (API phrase filter)."
+            if spec.name_filter == "phrase"
+            else "Filter by name.",
+        ),
         output_format: str | None = typer.Option(  # noqa: UP007
             None, "-o", "--output", help="Output format: json or table."
         ),
@@ -224,14 +242,15 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         """List resources."""
         cli: CliContext = ctx.obj
         apply_format(cli, output_format)
+        _validate_group_scope([spec], group)
         client = cli.client()
         scope = resolve_scope(client, group=group, zone=zone)
         filters: dict[str, Any] = dict(scope_filters(scope))
         if name is not None:
-            filters["name"] = name
+            filters[spec.name_filter] = name
         models = spec.service(client).list_all(**filters)
         if cli.fmt == "json":
-            items = [output.dump_item(m, spec.exclude) for m in models]
+            items = [spec.dump_item(m) for m in models]
             output.emit_json(output.list_document(spec.name, items))
         else:
             output.emit_table(spec.columns, models)
@@ -241,7 +260,9 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
     def describe(
         ctx: typer.Context,
         target: str = typer.Argument(..., metavar="ID_OR_NAME", help="Numeric ID or exact name."),
-        group: str | None = typer.Option(None, "--group", help="Group name or ID."),  # noqa: UP007
+        group: str | None = typer.Option(  # noqa: UP007
+            None, "--group", help="Group name or ID.", hidden=not spec.supports_group
+        ),
         zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
         output_format: str | None = typer.Option(  # noqa: UP007
             None, "-o", "--output", help="Output format: json or table."
@@ -250,6 +271,7 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         """Describe one resource by numeric ID or exact name."""
         cli: CliContext = ctx.obj
         apply_format(cli, output_format)
+        _validate_group_scope([spec], group)
         client = cli.client()
         service = spec.service(client)
         if is_id(target):
@@ -257,13 +279,11 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         else:
             scope = resolve_scope(client, group=group, zone=zone)
             try:
-                model = service.get_by_name(target, zone_id=scope.zone_id, group_id=scope.group_id)
+                model = service.get_by_name(target, **scope_filters(scope))
             except AmbiguousLookupError as exc:
                 raise AmbiguousNameError(str(exc)) from exc
         if cli.fmt == "json":
-            output.emit_json(
-                output.describe_document(spec.name, output.dump_item(model, spec.exclude))
-            )
+            output.emit_json(output.describe_document(spec.name, spec.dump_item(model)))
         else:
             output.emit_table(spec.columns, [model])
         return EXIT_OK

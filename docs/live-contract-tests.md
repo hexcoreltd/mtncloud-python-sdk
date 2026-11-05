@@ -78,3 +78,7 @@ created or modified. Authentication/permission/transport errors fail the run.
 Empty collections skip item checks; a detail response without `instanceId`
 skips ownership verification while asserting the SDK classifies it as unknown.
 No fixture or lifecycle contract should be marked verified from those skips.
+
+The same suite includes a CLI `inventory --only volumes` check for the JSON
+envelope, attachment-state fields and provider-metadata exclusions. This live
+CLI check is prepared but has not been run against a healthy control plane.

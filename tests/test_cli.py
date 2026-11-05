@@ -646,7 +646,7 @@ def test_inventory_only_filters_sections(capsys: pytest.CaptureFixture[str]) -> 
 @pytest.mark.usefixtures("token")
 def test_inventory_unknown_only_is_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
     transport = _inventory_transport()
-    assert _run_with(transport, ["inventory", "--only", "volumes", "-o", "json"]) == 2
+    assert _run_with(transport, ["inventory", "--only", "unknown-resource", "-o", "json"]) == 2
     assert capsys.readouterr().out == ""
     transport.request.assert_not_called()
 
@@ -712,7 +712,7 @@ def test_malformed_payload_does_not_leak_payload(
     assert json.loads(captured.err)["error"]["type"] == "InternalError"
 
 
-@pytest.mark.parametrize("resource", ["instances", "networks", "routers"])
+@pytest.mark.parametrize("resource", ["instances", "networks", "routers", "volumes"])
 def test_resource_without_subcommand_prints_help_and_exits_0(
     resource: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -765,3 +765,204 @@ def test_ctrl_c_exits_130_with_empty_stdout(capsys: pytest.CaptureFixture[str]) 
     transport.request.side_effect = KeyboardInterrupt()
     assert _run_with(transport, ["instances", "list", "-o", "json"]) == 130
     assert capsys.readouterr().out == ""
+
+
+# --- volumes -----------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("token")
+def test_volumes_list_follows_pages_with_resource_specific_filters(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _resp({"storageVolumes": [{"id": 1, "name": "data-a"}], "meta": {"total": 2}}),
+        _resp({"storageVolumes": [{"id": 2, "name": "data-b"}], "meta": {"total": 2}}),
+    ]
+    assert _run_with(transport, ["volumes", "list", "--zone", "4", "--name", "data"]) == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["resource"] == "volumes"
+    assert document["count"] == 2
+    assert [item["id"] for item in document["items"]] == [1, 2]
+    assert [call.kwargs["params"] for call in transport.request.call_args_list] == [
+        {"max": 100, "offset": 0, "zoneId": 4, "phrase": "data"},
+        {"max": 100, "offset": 1, "zoneId": 4, "phrase": "data"},
+    ]
+    assert all(
+        call.args == ("GET", "/storage/volumes") for call in transport.request.call_args_list
+    )
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("target", ["42", "data"])
+def test_volume_describe_by_id_and_exact_name(
+    capsys: pytest.CaptureFixture[str], target: str
+) -> None:
+    volume = {"id": 42, "name": "data", "instanceId": None, "status": "available"}
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {"storageVolume": volume} if target == "42" else {"storageVolumes": [volume]}
+    )
+    assert _run_with(transport, ["volumes", "describe", target, "--zone", "4"]) == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["schema"] == "mtncloud.describe/v1"
+    assert document["item"]["attachment_state"] == "unattached"
+    assert document["item"]["is_available"] is True
+    if target == "42":
+        assert transport.request.call_args.args == ("GET", "/storage/volumes/42")
+    else:
+        assert transport.request.call_args.kwargs["params"] == {
+            "max": 100,
+            "offset": 0,
+            "zoneId": 4,
+            "phrase": "data",
+        }
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize(
+    ("fields", "state", "available"),
+    [
+        ({"status": "ready"}, "unknown", False),
+        ({"instanceId": None}, "unattached", False),
+        ({"instanceId": None, "status": "ready"}, "unattached", True),
+        ({"instanceId": 7, "status": "ready"}, "attached", False),
+    ],
+)
+@pytest.mark.parametrize("command", ["list", "describe", "inventory"])
+def test_volume_output_preserves_attachment_evidence_and_excludes_provider_metadata(
+    capsys: pytest.CaptureFixture[str],
+    fields: dict[str, Any],
+    state: str,
+    available: bool,
+    command: str,
+) -> None:
+    volume = {
+        "id": 42,
+        "name": "data",
+        "storageType": {"secret": "s3cret"},
+        "datastore": {"secret": "s3cret"},
+        "zone": {"secret": "s3cret"},
+        **fields,
+    }
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {"storageVolume": volume} if command == "describe" else {"storageVolumes": [volume]}
+    )
+    args = {
+        "list": ["volumes", "list"],
+        "describe": ["volumes", "describe", "42"],
+        "inventory": ["inventory", "--only", "volumes"],
+    }[command]
+    assert _run_with(transport, args) == 0
+    captured = capsys.readouterr()
+    assert "s3cret" not in captured.out + captured.err
+    document = json.loads(captured.out)
+    if command == "inventory":
+        assert list(document["resources"]) == ["volumes"]
+        item = document["resources"]["volumes"]["items"][0]
+    else:
+        item = document["item"] if command == "describe" else document["items"][0]
+    assert item["attachment_state"] == state
+    assert item["is_available"] is available
+    assert ("instance_id" in item) is ("instanceId" in fields)
+    assert not {"storage_type", "datastore", "zone"}.intersection(item)
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["volumes", "list"],
+        ["volumes", "describe", "data"],
+        ["volumes", "describe", "42"],
+        ["inventory", "--only", "volumes"],
+        ["inventory", "--only", "instances,volumes"],
+    ],
+)
+def test_volume_group_scope_is_rejected_before_discovery(
+    capsys: pytest.CaptureFixture[str], args: list[str]
+) -> None:
+    transport = Mock()
+    assert _run_with(transport, [*args, "--group", "production"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "group scope" in captured.err
+    transport.request.assert_not_called()
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize(
+    ("body", "code"),
+    [
+        ({"storageVolumes": []}, 4),
+        ({"storageVolumes": [{"id": 1, "name": "data"}, {"id": 2, "name": "data"}]}, 5),
+    ],
+)
+def test_volume_lookup_exit_codes(
+    capsys: pytest.CaptureFixture[str], body: dict[str, Any], code: int
+) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp(body)
+    assert _run_with(transport, ["volumes", "describe", "data"]) == code
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert json.loads(captured.err)["schema"] == "mtncloud.error/v1"
+
+
+@pytest.mark.usefixtures("token")
+def test_inventory_can_mix_volumes_with_other_resources(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = _inventory_transport({"/storage/volumes": _resp({"storageVolumes": []})})
+    assert _run_with(transport, ["inventory", "--only", "instances,volumes", "--zone", "4"]) == 0
+    document = json.loads(capsys.readouterr().out)
+    assert list(document["resources"]) == ["instances", "volumes"]
+    assert all(call.kwargs["params"]["zoneId"] == 4 for call in transport.request.call_args_list)
+
+
+@pytest.mark.usefixtures("token")
+def test_volumes_inventory_failure_preserves_partial_result(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    transport = _inventory_transport({"/storage/volumes": _resp({"message": "denied"}, 403)})
+    assert _run_with(transport, ["inventory", "--only", "instances,volumes"]) == 3
+    document = json.loads(capsys.readouterr().out)
+    assert document["resources"]["instances"]["count"] == 1
+    assert document["resources"]["volumes"]["error"]["type"] == "ForbiddenError"
+
+
+@pytest.mark.usefixtures("token")
+def test_volume_table_exposes_unknown_attachment_state(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"storageVolumes": [{"id": 42, "name": "data"}]})
+    assert _run_with(transport, ["volumes", "list", "-o", "table"]) == 0
+    text = capsys.readouterr().out
+    assert "unknown" in text
+    assert "ATTACHMENT" in text
+
+
+@pytest.mark.usefixtures("token")
+def test_volume_named_zone_is_resolved_without_group_lookup(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _resp({"zones": [{"id": 4, "name": "lagos-1"}]}),
+        _resp({"storageVolumes": []}),
+    ]
+    assert _run_with(transport, ["volumes", "list", "--zone", "lagos-1"]) == 0
+    assert json.loads(capsys.readouterr().out)["count"] == 0
+    assert [call.args[1] for call in transport.request.call_args_list] == [
+        "/zones",
+        "/storage/volumes",
+    ]
+    assert transport.request.call_args.kwargs["params"] == {"max": 100, "offset": 0, "zoneId": 4}
+
+
+@pytest.mark.parametrize("command", ["list", "describe"])
+def test_volume_help_lists_supported_scope_only(
+    capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    assert _run(["volumes", command, "--help"]) == 0
+    help_text = capsys.readouterr().out
+    assert "--zone" in help_text
+    assert "--group" not in help_text

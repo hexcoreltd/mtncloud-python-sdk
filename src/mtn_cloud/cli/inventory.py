@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from mtn_cloud import MtnCloudClient, __version__
-from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, EXIT_PARTIAL, error_document, exit_code_for
 from mtn_cloud.cli.registry import ResourceSpec
 from mtn_cloud.cli.scope import Scope, scope_filters
@@ -58,7 +57,7 @@ def build_inventory(
         if isinstance(result, MtnCloudError):
             resources[spec.name] = {"error": error_document(result)["error"]}
         else:
-            items = [output.dump_item(m, spec.exclude) for m in result]
+            items = [spec.dump_item(m) for m in result]
             resources[spec.name] = {"count": len(items), "items": items}
     document = {
         "schema": INVENTORY_SCHEMA,

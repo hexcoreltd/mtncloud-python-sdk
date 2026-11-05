@@ -4,6 +4,15 @@ Status: implemented
 Date: 2026-11-04
 Roadmap: Milestone 10, immediate next action #5 ("read-only inventory")
 
+Extension (2026-11-05): the registry additionally supports `volumes` list and
+describe, plus opt-in inventory via `--only volumes`. Default inventory still
+uses the original three resources. Volumes accept zone scope, reject group
+scope, and map list-name filtering to `phrase`. Volume output preserves
+attachment-field omission and exposes attachment hints while excluding nested
+provider metadata. The original design below records the initial three-resource
+release; see README for the extended command contract. Live validation of the
+volume CLI remains pending.
+
 ## 1. Goal
 
 Ship a read-only `mtncloud` command-line interface, inside this repository and

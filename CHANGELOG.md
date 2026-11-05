@@ -10,6 +10,10 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only CLI volume list/describe and opt-in volume inventory, with zone
+  scope, attachment-state output and provider-metadata exclusions. Default
+  inventory sections remain unchanged. Live validation is pending.
+
 - Explicit volume `attachment_state` and `is_unattached` helpers, plus opt-in
   read-only live block-storage contract tests (live verification pending).
 

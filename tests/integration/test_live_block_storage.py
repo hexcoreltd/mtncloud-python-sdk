@@ -1,5 +1,6 @@
 """Opt-in read-only block-storage checks; no allocation or attachment occurs."""
 
+import json
 import os
 from collections.abc import Iterator
 
@@ -67,3 +68,24 @@ def test_live_volume_type_contract(storage_client: MtnCloudClient) -> None:
     if not types:
         pytest.skip("No volume types available; type detail contract was not exercised")
     assert storage_client.volumes.get_type(types[0].id).id == types[0].id
+
+
+def test_live_volume_cli_inventory(
+    storage_client: MtnCloudClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mtn_cloud.cli import main
+
+    code = main(
+        ["inventory", "--only", "volumes", "--output", "json"],
+        client_factory=lambda settings: storage_client,
+    )
+    assert code == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["schema"] == "mtncloud.inventory/v1"
+    assert list(document["resources"]) == ["volumes"]
+    for item in document["resources"]["volumes"]["items"]:
+        assert item["attachment_state"] in {"attached", "unattached", "unknown"}
+        assert not {"storage_type", "datastore", "zone"}.intersection(item)
+        if item["attachment_state"] == "unknown":
+            assert "instance_id" not in item
+            assert item["is_available"] is False

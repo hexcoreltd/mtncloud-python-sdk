@@ -324,10 +324,14 @@ accepts a credential.
 mtncloud instances list --group production --zone lagos-1
 mtncloud networks describe app-network --group production
 mtncloud inventory --only instances,routers -o json > inventory.json
+mtncloud volumes list --zone lagos-1
+mtncloud volumes describe app-data --zone lagos-1
+mtncloud inventory --only instances,volumes --zone lagos-1 -o json
 mtncloud version
 ```
 
 - `mtncloud instances|networks|routers list [--group] [--zone] [--name]`
+- `mtncloud volumes list [--zone] [--name]`
 - `mtncloud <resource> describe <id-or-name> [--group] [--zone]`. An argument
   made only of digits is an ID and ignores `--group` and `--zone`. Anything
   else must match one name exactly. `list --name` instead passes the name to
@@ -335,6 +339,19 @@ mtncloud version
   exact match.
 - `mtncloud inventory [--only R1,R2] [--group] [--zone]`
 - `mtncloud version`
+
+Volume commands support zone scope only. `--group` is rejected with exit code
+2 before discovery, including on an inventory selection containing volumes.
+For numeric volume IDs, `--zone` is ignored, as with other describe commands.
+Volume `list --name` uses the API's broader `phrase` search; `describe` by
+name requires an exact, unique match across all pages.
+
+Default inventory remains `instances`, `networks`, and `routers`. Include
+volumes explicitly with `--only volumes` or a mixed selection such as
+`--only instances,volumes`. Volume JSON includes `attachment_state`,
+`is_unattached`, and the `is_available` hint. Omitted attachment fields remain
+omitted; explicit null values are preserved. Nested provider metadata
+(`storage_type`, `datastore`, and `zone`) is excluded from CLI output.
 
 Global options are `-o/--output json|table`, `--base-url`, `--timeout` and
 `--debug`. `-o` may go before the command or after it, and the value after the
