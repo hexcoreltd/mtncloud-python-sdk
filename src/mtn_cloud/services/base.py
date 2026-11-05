@@ -75,10 +75,14 @@ class Service(Generic[T]):
     def list_all(self, *, page_size: int = 100, **filters: Any) -> list[T]:
         """Follow collection pages, returning each resource ID once.
 
-        `meta.total` is treated as a hint: MTN Cloud has been observed to
-        over-report it and repeat items at later offsets. Items whose integer ID
-        was already collected are dropped, and a page that contributes no new IDs
-        ends pagination, which also stops a provider that ignores `offset`.
+        Items whose integer ID was already collected are dropped. MTN Cloud has
+        been observed to over-report `meta.total` and repeat items at later
+        offsets, so a repeated page never fails the traversal. When `total` is
+        reported, pages are followed until the offset reaches it, so a repeated
+        page cannot hide later items; the offset always advances, which bounds
+        the requests. Without `total`, a page that adds no new IDs ends
+        pagination, which stops a provider that ignores `offset`. That stop
+        relies on integer IDs, which every modern collection model requires.
         """
         if type(page_size) is not int or page_size < 1:
             raise ValueError("page_size must be a positive integer")
@@ -104,13 +108,13 @@ class Service(Generic[T]):
                         continue
                     seen_ids.add(item_id)
                 new_items.append(item)
-            if not new_items:
-                break
             collected.extend(new_items)
             offset += len(page.items)
             if page.total is not None:
                 if offset >= page.total:
                     break
+            elif not new_items:
+                break
             elif len(page.items) < min(page_size, page.limit or page_size):
                 break
         return collected

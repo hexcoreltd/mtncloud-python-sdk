@@ -261,6 +261,7 @@ def test_overcounted_total_returns_unique_images(client: MtnCloudClient, transpo
         page([{"id": 928, "name": "image-a"}], offset=1, total=2),
     ]
     assert [image.id for image in client.virtual_images.list_all(page_size=1)] == [928]
+    assert transport.request.call_count == 2
 
     transport.request.side_effect = [
         page([{"id": 928, "name": "image-a"}], total=2),

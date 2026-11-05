@@ -83,6 +83,28 @@ def test_partially_overlapping_pages_are_deduplicated(
     assert transport.request.call_count == 2
 
 
+def test_repeated_page_does_not_hide_items_before_the_reported_total(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    # A concurrent insert can repeat IDs on one page while later pages still hold
+    # new items; stopping early would hide the second "ledger" and its ambiguity.
+    transport.request.side_effect = [
+        page([{"id": 1, "name": "ledger"}, {"id": 2, "name": "other"}], total=5),
+        page([{"id": 1, "name": "ledger"}, {"id": 2, "name": "other"}], total=5),
+        page([{"id": 3, "name": "ledger"}], total=5),
+    ]
+    with pytest.raises(AmbiguousLookupError):
+        client.apps.get_by_name("ledger")
+    assert transport.request.call_count == 3
+
+
+def test_duplicate_ids_within_one_page_are_returned_once(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.return_value = page([{"id": 1}, {"id": 1}, {"id": 2}])
+    assert [app.id for app in client.apps.list_all()] == [1, 2]
+
+
 def test_reported_offset_mismatch_is_rejected(client: MtnCloudClient, transport: Mock) -> None:
     transport.request.return_value = page([{"id": 1}], offset=9)
     with pytest.raises(MtnCloudError, match="unexpected offset"):
