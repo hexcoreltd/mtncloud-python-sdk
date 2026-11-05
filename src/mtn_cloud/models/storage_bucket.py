@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from mtn_cloud.models.base import BaseModel, Resource
 
@@ -21,11 +21,13 @@ class StorageServerReference(BaseModel):
 class StorageBucket(Resource):
     """Storage bucket or file share."""
 
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     active: bool | None = None
     account_id: int | None = Field(default=None, alias="accountId")
     provider_type: str | None = Field(default=None, alias="providerType")
     storage_server: StorageServerReference | None = Field(default=None, alias="storageServer")
-    config: dict[str, Any] | None = None
+    config: dict[str, Any] | None = Field(default=None, repr=False)
     bucket_name: str | None = Field(default=None, alias="bucketName")
     read_only: bool | None = Field(default=None, alias="readOnly")
     default_backup_target: bool | None = Field(default=None, alias="defaultBackupTarget")
@@ -47,10 +49,12 @@ class StorageBucket(Resource):
 class StorageBucketCreate(BaseModel):
     """Create S3-compatible storage bucket payload builder."""
 
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     name: str
     provider_type: Literal["s3"] = Field(default="s3", alias="providerType")
     bucket_name: str = Field(alias="bucketName")
-    config: dict[str, Any]
+    config: dict[str, Any] = Field(repr=False)
     storage_server: int | None = Field(default=None, alias="storageServer")
     default_backup_target: bool | None = Field(default=None, alias="defaultBackupTarget")
     copy_to_store: bool | None = Field(default=None, alias="copyToStore")
@@ -78,9 +82,11 @@ class StorageBucketCreate(BaseModel):
 class StorageBucketUpdate(BaseModel):
     """Update S3-compatible storage bucket payload builder."""
 
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     name: str | None = None
     bucket_name: str | None = Field(default=None, alias="bucketName")
-    config: dict[str, Any] | None = None
+    config: dict[str, Any] | None = Field(default=None, repr=False)
     default_backup_target: bool | None = Field(default=None, alias="defaultBackupTarget")
     copy_to_store: bool | None = Field(default=None, alias="copyToStore")
     default_deployment_target: bool | None = Field(default=None, alias="defaultDeploymentTarget")

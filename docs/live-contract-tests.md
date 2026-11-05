@@ -82,3 +82,17 @@ No fixture or lifecycle contract should be marked verified from those skips.
 The same suite includes a CLI `inventory --only volumes` check for the JSON
 envelope, attachment-state fields and provider-metadata exclusions. This live
 CLI check is prepared but has not been run against a healthy control plane.
+
+## Object-storage configurations (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_object_storage.py -q -x --tb=short
+```
+
+These GET-only tests verify storage-bucket collection/detail retrieval and,
+when at least two configurations exist, pagination. Provider credentials are
+not printed or saved. Empty collections skip detail checks; missing/insufficient
+pagination metadata skips the pagination check. Authentication, permission and
+transport errors fail the run. The suite does not create/delete configurations
+or S3 objects; mutation lifecycle verification remains pending.

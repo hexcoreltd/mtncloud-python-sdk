@@ -428,6 +428,38 @@ models for later reconstruction, use `model_dump(exclude_unset=True)` to
 preserve the difference between omitted fields and explicit null values.
 Volume mutation operations and live verification remain pending.
 
+## Object-storage configuration
+
+`cloud.storage_buckets` manages MTN Cloud's storage-provider configurations.
+Its lookup searches all pages and requires an exact, unique name:
+
+```python
+from mtn_cloud import MtnCloudClient
+
+with MtnCloudClient() as cloud:
+    bucket = cloud.storage_buckets.get_by_name("backups")
+    print(bucket.id, bucket.name, bucket.provider_type)
+    # Explicit configuration removal; provider resource removal defaults off:
+    # cloud.storage_buckets.delete(bucket.id)
+```
+
+Name misses raise `LookupNotFoundError`; duplicate names raise
+`AmbiguousLookupError`. Deletion treats HTTP 404 as already absent and reports
+an explicit JSON `success: false` as failure. `remove_resources=True` requests
+provider resource removal and must be chosen explicitly; a successful request
+does not prove backend cleanup or S3 object deletion has completed.
+
+Provider `config` is omitted from model `repr`/`str` output, and rendered model
+validation errors hide input values. Configuration remains present in
+`model_dump()`, request payloads and structured validation error details.
+Avoid logging those values. Malformed or explicitly
+rejected get/create/update responses produce `MtnCloudError` with generic
+messages and operation context.
+
+See [the configuration example](examples/storage_bucket_config.py). S3 object
+transfers, access-key management, and full live lifecycle verification remain
+pending; this service manages control-plane configuration only.
+
 ## Control-plane availability monitor
 
 Run the standalone monitor from an external host to observe console HTTP
@@ -483,11 +515,12 @@ except MtnCloudError as exc:
 ```
 
 Name-based helpers such as `networks.get_subnet_by_name`,
-`networks.get_pool_ip`, `volumes.get_by_name`, `routers.get_interface`, and
+`networks.get_pool_ip`, `volumes.get_by_name`, `storage_buckets.get_by_name`, `routers.get_interface`, and
 layout-name resolution during `instances.provision` raise
 `LookupNotFoundError` when nothing matches. It subclasses `NotFoundError` and
 is also a `ValueError`, so code written against earlier releases keeps
-working. Ambiguous matches still raise a plain `ValueError`.
+working. Ambiguous matches raise `ValueError` or its specialized subclass
+`AmbiguousLookupError`.
 
 Because Python uses the first matching `except` clause, a lookup miss now
 reaches an `except NotFoundError:` or `except MtnCloudError:` clause listed

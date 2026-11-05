@@ -10,6 +10,9 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Opt-in read-only object-storage configuration contract tests, sharing the
+  authenticated storage fixture. Live verification remains pending.
+
 - Read-only CLI volume list/describe and opt-in volume inventory, with zone
   scope, attachment-state output and provider-metadata exclusions. Default
   inventory sections remain unchanged. Live validation is pending.
@@ -69,6 +72,13 @@ would normally require a major release in a mature stable SDK.
 
 ### Changed
 
+- Storage-bucket name lookup traverses all pages and uses `LookupNotFoundError`
+  and `AmbiguousLookupError`. Both remain compatible with their existing base
+  exception types (`NotFoundError` and `ValueError`, respectively).
+- Provider configuration is hidden from storage-bucket model `repr`/`str`
+  output and rendered model validation errors hide input values. Configuration
+  remains available in serialization and API payloads.
+
 - Volume name lookup and attached/unattached selection now traverse all pages;
   duplicate volume names raise `AmbiguousLookupError` (also a `ValueError`).
 - `list_unattached()` excludes volumes with omitted `instanceId` metadata.
@@ -94,6 +104,11 @@ would normally require a major release in a mature stable SDK.
 - Standardized repository formatting and lint compliance for CI quality gates.
 
 ### Fixed
+
+- Storage-bucket detail/mutation adapters reject explicit `success: false`
+  responses and wrap malformed detail payloads in SDK errors with generic
+  messages. Deletion treats HTTP 404 as already absent and keeps backend
+  resource removal opt-in. Live lifecycle verification is pending.
 
 - Router creation and waiters preserve submitted resource IDs for cleanup on
   follow-up failures, retaining HTTP exception types and request metadata.

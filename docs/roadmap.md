@@ -307,8 +307,27 @@ storage without tested backup and recovery is not operational resilience.
 
 ### Milestone 3 — Object storage
 
+Progress: **control-plane configuration CRUD implemented; data plane pending**
+
+Implemented offline reliability improvements:
+
+- Bucket name lookup traverses all pages and reports typed missing/ambiguous
+  lookups, without returning partial results after a later-page failure.
+- Detail and mutation adapters reject explicit `success: false` envelopes;
+  malformed detail responses raise SDK errors with generic messages.
+- Configuration deletion handles already-absent records and keeps provider
+  removal explicitly opt-in. Backend/object cleanup is not inferred from HTTP
+  success.
+- Provider configuration is hidden from model `repr`/`str` and rendered model
+  validation errors hide inputs. Serialization retains configuration; raw
+  dumps and structured validation error details remain sensitive.
+- Mocked regression coverage is complete; read-only collection/detail/pagination
+  live tests are prepared. Full live lifecycle validation remains pending.
+
+Still to implement and verify:
+
 - Tenant object-storage access-key workflow
-- Bucket discovery and configuration
+- Live lifecycle validation of bucket configurations
 - S3-compatible endpoint configuration
 - A separate S3 client adapter using the generated access credentials
 - Bucket policy and access mode support where exposed
