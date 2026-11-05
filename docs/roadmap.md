@@ -263,14 +263,24 @@ Implemented in the current development line:
   deletion (implemented with mocked regression coverage; live verification pending)
 - Read-only network creation preflight covering addressing and group, zone,
   type and resource-pool dependencies; optional `create(validate=True)`
-  integration (mocked tests pass; live validation pending)
+  integration (verified live 2026-11-05)
 
-Prepared for the next healthy live environment:
+Verified live with guarded mutation tests (2026-11-05):
 
-- Guarded router create/readiness/delete lifecycle test with cleanup using the
-  submitted ID, including follow-up read failures. This test requires explicitly
-  configured test resource IDs and a dedicated unattached subnet.
-- Read-only network preflight test with explicitly configured test placement IDs.
+- Network create (with preflight) and delete, using a throwaway network.
+- Router create, readiness and delete, attached to that throwaway network's
+  subnet so no existing subnet is touched.
+- Instance provisioning from explicit selectors: dry run, create, wait until
+  running and force delete (one small instance, about 3 minutes).
+- Network create preflight with tenant credentials, which cannot read
+  `/zones/{id}`; that lookup's 403 now skips only the zone-enabled check.
+
+Provider behaviour found by these runs:
+
+- Just after a network is created, its subnet listing returns another
+  network's subnet for about 10 seconds. `list_subnets` drops it.
+- Router interfaces reference the network and CIDR, not the subnet, so
+  `routers.get_interface(router_id, subnet_id)` cannot match on MTN yet.
 
 Still to implement and verify:
 
