@@ -20,7 +20,7 @@ class _ProcessRecord(Resource):
     display_name: str | None = Field(default=None, alias="displayName", repr=False)
     description: str | None = Field(default=None, repr=False)
     sub_type: str | None = Field(default=None, alias="subType")
-    sub_id: str | None = Field(default=None, alias="subId")
+    sub_id: int | str | None = Field(default=None, alias="subId")
     zone_id: int | None = Field(default=None, alias="zoneId")
     integration_id: str | None = Field(default=None, alias="integrationId")
     instance_id: Annotated[int, Field(strict=True)] | None = Field(default=None, alias="instanceId")

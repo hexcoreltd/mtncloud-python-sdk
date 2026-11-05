@@ -167,16 +167,18 @@ def test_app_lookup_handles_missing_and_ambiguous_names(capsys: pytest.CaptureFi
     assert capsys.readouterr().out == ""
 
 
-def test_cli_does_not_emit_duplicate_inventory_on_pagination_failure(
+def test_cli_lists_each_application_once_when_total_is_overcounted(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    # Live MTN contract (2026-11-05): total can exceed the unique items returned.
     transport = Mock()
     transport.request.side_effect = [
         response({"apps": [{"id": 1}], "meta": {"total": 2}}),
         response({"apps": [{"id": 1}], "meta": {"total": 2}}),
     ]
-    assert run(transport, ["apps", "list"]) == 7
-    assert capsys.readouterr().out == ""
+    assert run(transport, ["apps", "list", "-o", "json"]) == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["count"] == 1 and [item["id"] for item in document["items"]] == [1]
     assert transport.request.call_count == 2
 
 

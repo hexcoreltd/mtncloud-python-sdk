@@ -73,7 +73,17 @@ class Service(Generic[T]):
         )
 
     def list_all(self, *, page_size: int = 100, **filters: Any) -> list[T]:
-        """Follow collection pages, failing on detected overlap or offset mismatches."""
+        """Follow collection pages, returning each resource ID once.
+
+        Items whose integer ID was already collected are dropped. MTN Cloud has
+        been observed to over-report `meta.total` and repeat items at later
+        offsets, so a repeated page never fails the traversal. When `total` is
+        reported, pages are followed until the offset reaches it, so a repeated
+        page cannot hide later items; the offset always advances, which bounds
+        the requests. Without `total`, a page that adds no new IDs ends
+        pagination, which stops a provider that ignores `offset`. That stop
+        relies on integer IDs, which every modern collection model requires.
+        """
         if type(page_size) is not int or page_size < 1:
             raise ValueError("page_size must be a positive integer")
         list_page = cast(Callable[..., Page[T]], getattr(self, "list_page"))  # noqa: B009
@@ -90,23 +100,21 @@ class Service(Generic[T]):
                     method="GET",
                     path=self.path,
                 )
-            page_ids: set[int] = set()
+            new_items: list[T] = []
             for item in page.items:
                 item_id = getattr(item, "id", None)
                 if type(item_id) is int:
                     if item_id in seen_ids:
-                        raise MtnCloudError(
-                            "Collection pagination repeated resource IDs",
-                            method="GET",
-                            path=self.path,
-                        )
-                    page_ids.add(item_id)
-            seen_ids.update(page_ids)
-            collected.extend(page.items)
+                        continue
+                    seen_ids.add(item_id)
+                new_items.append(item)
+            collected.extend(new_items)
             offset += len(page.items)
             if page.total is not None:
-                if len(collected) >= page.total:
+                if offset >= page.total:
                     break
+            elif not new_items:
+                break
             elif len(page.items) < min(page_size, page.limit or page_size):
                 break
         return collected

@@ -133,9 +133,11 @@ would normally require a major release in a mature stable SDK.
 - Shared collection pagination no longer treats page-local `meta.size` as the
   collection total when `meta.total` is absent, avoiding premature truncation.
 
-- Shared `list_all()` now rejects detected repeated resource IDs across pages
-  and unexpected nonempty-page offsets instead of returning duplicate data;
-  respects reported page-size caps and rejects non-integer page sizes.
+- Shared `list_all()` rejects unexpected nonempty-page offsets, respects
+  reported page-size caps and rejects non-integer page sizes. It returns each
+  resource ID once: repeated IDs are dropped, pages are followed until the
+  offset reaches `meta.total`, and without a total a page with no new IDs ends
+  pagination (see Fixed).
 - Application model representations omit config and rendered validation errors
   hide inputs. Raw serialization and structured errors remain sensitive.
 
@@ -175,6 +177,15 @@ would normally require a major release in a mature stable SDK.
 - Standardized repository formatting and lint compliance for CI quality gates.
 
 ### Fixed
+
+- Live MTN contract mismatches found on 2026-11-05:
+  - `StorageVolume.datastore_id` accepts the integer `datastoreId` MTN returns,
+    which previously broke volume listing and the `mtncloud volumes` commands.
+  - `Process.sub_id` accepts the integer `subId` MTN returns for some
+    processes, which previously broke process history.
+  - `list_all()` no longer raises "repeated resource IDs" when MTN reports a
+    `meta.total` larger than the unique items it returns, which previously broke
+    `virtual_images.list_all()` and image name lookup.
 
 - Backup execution submissions and deletion reject explicit `success: false`
   responses; shared collection/detail adapters also reject failed envelopes

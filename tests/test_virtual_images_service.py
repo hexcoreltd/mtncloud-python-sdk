@@ -245,13 +245,29 @@ def test_name_lookup_does_not_return_match_when_later_page_fails(
     assert raised.value.request_id == "req-images"
 
 
-def test_list_all_rejects_a_provider_ignoring_pagination(
+def test_list_all_stops_when_a_provider_ignores_pagination(
     client: MtnCloudClient, transport: Mock
 ) -> None:
     transport.request.return_value = page([{"id": 1}])
-    with pytest.raises(MtnCloudError, match="repeated resource IDs"):
-        client.virtual_images.list_all(page_size=1)
+    images = client.virtual_images.list_all(page_size=1)
+    assert [image.id for image in images] == [1]
     assert transport.request.call_count == 2
+
+
+def test_overcounted_total_returns_unique_images(client: MtnCloudClient, transport: Mock) -> None:
+    # Live MTN contract (2026-11-05): total=2, but offset=1 repeats the only image.
+    transport.request.side_effect = [
+        page([{"id": 928, "name": "image-a"}], total=2),
+        page([{"id": 928, "name": "image-a"}], offset=1, total=2),
+    ]
+    assert [image.id for image in client.virtual_images.list_all(page_size=1)] == [928]
+    assert transport.request.call_count == 2
+
+    transport.request.side_effect = [
+        page([{"id": 928, "name": "image-a"}], total=2),
+        page([{"id": 928, "name": "image-a"}], offset=1, total=2),
+    ]
+    assert client.virtual_images.get_by_name("image-a").id == 928
 
 
 def test_page_size_metadata_is_not_a_collection_total(

@@ -230,6 +230,15 @@ embedded router interfaces. See [networking contract status](networking-contract
 for the operation inventory and access blocker. IP-pool discovery must not be
 counted as standalone floating-IP lifecycle support.
 
+Later on 2026-11-05 the control plane recovered, and the read-only live suite
+ran against a real tenant: 17 tests passed, and 16 were skipped for lack of
+resources such as backups, snapshots and bucket configurations. The read-only
+networking checks, instance snapshot listing and process detail now pass live.
+The run found three contract mismatches, all now fixed with regression tests:
+integer `datastoreId` on volumes, integer `subId` on processes, and an
+over-reported virtual-image `meta.total`. MTN Cloud returns no request-ID
+header, so `request_id` is empty on errors from this provider.
+
 Implemented in the current development line:
 
 - Modern network type discovery
@@ -400,8 +409,9 @@ Progress: **application discovery implemented; managed-database workflow pending
 - Read-only application CLI list/describe and opt-in inventory, with filtered
   operational output and sanitized normal errors. Live verification remains
   pending. This does not complete managed-database provisioning or management.
-- Shared pagination rejects detected repeated IDs/offset mismatches and handles
-  reported page-size caps; mocked regressions pass. GET-only application live
+- Shared pagination returns each resource ID once, rejects offset mismatches
+  and handles reported page-size caps; it tolerates MTN's over-reported
+  `meta.total` (verified live 2026-11-05). GET-only application live
   checks are prepared, including an optional configured-name lookup.
 
 - Managed database application discovery
