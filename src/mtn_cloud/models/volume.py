@@ -30,7 +30,7 @@ class StorageVolume(Resource):
     root_volume: bool = Field(default=False, alias="rootVolume")
 
     datastore: dict[str, Any] | None = Field(default=None)
-    datastore_id: str | None = Field(default=None, alias="datastoreId")
+    datastore_id: int | str | None = Field(default=None, alias="datastoreId")
 
     zone: dict[str, Any] | None = Field(default=None)
 

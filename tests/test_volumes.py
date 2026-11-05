@@ -160,6 +160,12 @@ def test_later_page_errors_propagate_instead_of_returning_partial_selections(
     assert raised.value.request_id == "req-2"
 
 
+def test_integer_datastore_id_from_live_contract_is_accepted() -> None:
+    # Live MTN contract (2026-11-05): datastoreId is an integer.
+    assert StorageVolume.model_validate({"id": 1, "datastoreId": 77}).datastore_id == 77
+    assert StorageVolume.model_validate({"id": 1, "datastoreId": "ds-7"}).datastore_id == "ds-7"
+
+
 def test_list_still_returns_a_single_page(client: MtnCloudClient, transport: Mock) -> None:
     transport.request.return_value = page([{"id": 1}], 0, 2)
     assert len(client.volumes.list(limit=1)) == 1

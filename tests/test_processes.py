@@ -371,3 +371,9 @@ def test_callback_cannot_turn_a_running_observation_into_completion(
 
     client.processes.wait_for_status(901, "complete", on_status=callback)
     assert transport.request.call_count == 2
+
+
+def test_integer_sub_id_from_live_contract_is_accepted() -> None:
+    # Live MTN contract (2026-11-05): subId is sometimes an integer.
+    assert Process.model_validate({"id": 1, "subId": 12}).sub_id == 12
+    assert Process.model_validate({"id": 1, "subId": "a-1"}).sub_id == "a-1"
