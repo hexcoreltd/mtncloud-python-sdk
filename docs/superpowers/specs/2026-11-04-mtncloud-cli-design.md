@@ -20,6 +20,14 @@ errors use a generic message while preserving exception types and operation
 metadata. Debug traces may expose original causes. Default inventory remains
 the original three resources; bucket CLI live verification remains pending.
 
+Backup extension: read-only `backups list`, `describe`, `jobs`, and
+`results BACKUP_ID` are implemented, plus opt-in configuration inventory.
+Group/zone scope is rejected. Jobs/results use list envelopes with resource
+identifiers `backup-jobs`/`backup-results`; result envelopes record the requested
+backup ID separately from returned item metadata. Provider metadata, result
+configuration and raw error messages are excluded. Mutations remain outside
+this CLI increment and live verification remains pending.
+
 ## 1. Goal
 
 Ship a read-only `mtncloud` command-line interface, inside this repository and

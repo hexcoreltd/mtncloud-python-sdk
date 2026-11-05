@@ -461,6 +461,10 @@ mutation services.
   Unsupported group/zone scope fails before requests. Mocked regression
   coverage is complete and a read-only live CLI check is prepared; live
   verification is deferred. No object data-plane or CLI mutation support is implied.
+- Backup configuration list/describe and opt-in inventory, job listing and
+  execution-history commands. Output excludes nested provider metadata and raw
+  result errors. Mocked regression coverage is complete and guarded read-only
+  live CLI checks are prepared; live verification remains deferred.
 - JSON output for automation
 - Human-readable tables for operators
 - `plan`, `apply`, `wait`, `destroy`, and `inventory` commands

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from mtn_cloud import MtnCloudClient
 from mtn_cloud.cli import output
+from mtn_cloud.models.backup import Backup
 from mtn_cloud.models.storage_bucket import StorageBucket
 from mtn_cloud.models.volume import StorageVolume
 from mtn_cloud.modern_exceptions import MtnCloudError
@@ -46,7 +47,7 @@ class ResourceSpec:
             return error
         safe = copy(error)
         safe.message = (
-            "Storage-bucket operation failed; inspect credentials and permissions securely."
+            f"{self.name} operation failed; inspect credentials and permissions securely."
         )
         safe.args = (safe.message,)
         safe.response = None
@@ -105,6 +106,65 @@ def _serialize_storage_bucket(bucket: StorageBucket) -> dict[str, Any]:
             "last_updated",
         },
     )
+
+
+def _serialize_backup(backup: Backup) -> dict[str, Any]:
+    return backup.model_dump(
+        mode="json",
+        exclude_unset=True,
+        include={
+            "id",
+            "name",
+            "backup_type",
+            "status",
+            "enabled",
+            "retention_count",
+            "scheduled",
+            "cron_expression",
+            "last_status",
+            "last_success",
+            "last_run",
+            "next_fire",
+            "date_created",
+            "last_updated",
+        },
+    )
+
+
+BACKUP_JOB_COLUMNS = (
+    Column("ID", lambda m: m.id),
+    Column("NAME", lambda m: m.name),
+    Column("ENABLED", lambda m: m.enabled),
+    Column("LAST STATUS", lambda m: m.last_status),
+)
+BACKUP_JOB_FIELDS = {
+    "id",
+    "name",
+    "code",
+    "enabled",
+    "retention_count",
+    "cron_expression",
+    "last_status",
+    "last_run",
+    "next_fire",
+}
+BACKUP_RESULT_COLUMNS = (
+    Column("ID", lambda m: m.id),
+    Column("BACKUP", lambda m: m.backup_id),
+    Column("STATUS", lambda m: m.status),
+    Column("SIZE MB", lambda m: m.size_in_mb),
+    Column("DURATION MS", lambda m: m.duration_millis),
+)
+BACKUP_RESULT_FIELDS = {
+    "id",
+    "backup_id",
+    "backup_name",
+    "status",
+    "size_in_mb",
+    "duration_millis",
+    "start_date",
+    "end_date",
+}
 
 
 REGISTRY: dict[str, ResourceSpec] = {
@@ -171,6 +231,22 @@ REGISTRY: dict[str, ResourceSpec] = {
         supports_zone=False,
         inventory_default=False,
         serializer=_serialize_storage_bucket,
+        redact_errors=True,
+    ),
+    "backups": ResourceSpec(
+        name="backups",
+        service=lambda client: client.backups,
+        columns=(
+            Column("ID", lambda m: m.id),
+            Column("NAME", lambda m: m.name),
+            Column("ENABLED", lambda m: m.enabled),
+            Column("LAST STATUS", lambda m: m.last_status),
+        ),
+        supports_group=False,
+        supports_zone=False,
+        name_filter="phrase",
+        inventory_default=False,
+        serializer=_serialize_backup,
         redact_errors=True,
     ),
 }

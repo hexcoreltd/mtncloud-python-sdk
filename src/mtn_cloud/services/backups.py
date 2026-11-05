@@ -4,7 +4,7 @@ from typing import Any, List
 
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.backup import Backup, BackupJob, BackupResult
-from mtn_cloud.modern_exceptions import MtnCloudError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, LookupNotFoundError, MtnCloudError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -84,6 +84,16 @@ class BackupsService(Service[Backup]):
 
     def get(self, backup_id: int) -> Backup:
         return self._get(backup_id)
+
+    def get_by_name(self, name: str) -> Backup:
+        """Find a unique exact configuration name across all phrase-search pages."""
+        matches = [backup for backup in self.list_all(phrase=name) if backup.name == name]
+        if not matches:
+            raise LookupNotFoundError(f"Backup '{name}' was not found")
+        if len(matches) > 1:
+            ids = sorted(backup.id for backup in matches)
+            raise AmbiguousLookupError(f"Backup name '{name}' is ambiguous: ids {ids}")
+        return matches[0]
 
     def delete(self, backup_id: int) -> bool:
         """Request configuration deletion; provider retention effects require verification."""

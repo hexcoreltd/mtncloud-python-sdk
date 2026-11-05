@@ -116,3 +116,9 @@ and compare successive one-item pages when at least two items are reported.
 Empty collections or insufficient pagination data skip the corresponding
 checks. They never trigger execution, deletion or restore; those lifecycle
 contracts remain pending. See the [backup guide](backup-recovery.md).
+
+The backup suite also includes CLI configuration inventory, job listing and
+execution-history checks. These use the same live guard and perform only GET
+requests. No backup execution, deletion or restore command is invoked. CLI
+live verification remains deferred; unavailable tenant data skips the affected
+checks without claiming item or lifecycle coverage.

@@ -218,3 +218,18 @@ def test_common_collection_adapter_rejects_failed_envelopes(
     transport.request.return_value = HttpResponse(200, {}, {"success": False, key: []})
     with pytest.raises(MtnCloudError, match="rejected"):
         getattr(client, service).list()
+
+
+def test_backup_name_lookup_checks_later_pages(client: MtnCloudClient, transport: Mock) -> None:
+    transport.request.side_effect = [
+        HttpResponse(
+            200, {}, {"backups": [{"id": 1, "name": "nightly-old"}], "meta": {"total": 2}}
+        ),
+        HttpResponse(200, {}, {"backups": [{"id": 2, "name": "nightly"}], "meta": {"total": 2}}),
+    ]
+    assert client.backups.get_by_name("nightly").id == 2
+    assert transport.request.call_args.kwargs["params"] == {
+        "max": 100,
+        "offset": 1,
+        "phrase": "nightly",
+    }

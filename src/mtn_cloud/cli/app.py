@@ -16,7 +16,15 @@ from mtn_cloud.cli import inventory as inventory_module
 from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentialsError
 from mtn_cloud.cli.output import OutputFormat
-from mtn_cloud.cli.registry import REGISTRY, ResourceSpec
+from mtn_cloud.cli.registry import (
+    BACKUP_JOB_COLUMNS,
+    BACKUP_JOB_FIELDS,
+    BACKUP_RESULT_COLUMNS,
+    BACKUP_RESULT_FIELDS,
+    REGISTRY,
+    Column,
+    ResourceSpec,
+)
 from mtn_cloud.cli.scope import is_id, resolve_scope, scope_filters
 from mtn_cloud.modern_exceptions import AmbiguousLookupError, MtnCloudError
 
@@ -302,4 +310,68 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
             output.emit_table(spec.columns, [model])
         return EXIT_OK
 
+    if spec.name == "backups":
+        _add_backup_commands(sub, spec, state)
     return sub
+
+
+def _add_backup_commands(app: typer.Typer, spec: ResourceSpec, state: CliState) -> None:
+    def context(ctx: typer.Context, requested: str | None) -> CliContext:
+        cli: CliContext = ctx.obj
+        if requested is not None:
+            cli.fmt = _validate_format(requested)
+            state.fmt = cli.fmt
+        return cli
+
+    def emit(
+        cli: CliContext,
+        resource: str,
+        models: list[Any],
+        fields: set[str],
+        columns: tuple[Column, ...],
+        backup_id: int | None = None,
+    ) -> None:
+        if cli.fmt == "json":
+            items = [
+                model.model_dump(mode="json", include=fields, exclude_unset=True)
+                for model in models
+            ]
+            document = output.list_document(resource, items)
+            if backup_id is not None:
+                document["backup_id"] = backup_id
+            output.emit_json(document)
+        else:
+            output.emit_table(columns, models)
+
+    @app.command("jobs")
+    def jobs(
+        ctx: typer.Context,
+        output_format: str | None = typer.Option(  # noqa: UP007
+            None, "-o", "--output", help="Output format: json or table."
+        ),
+    ) -> int:
+        """List all backup job definitions."""
+        cli = context(ctx, output_format)
+        try:
+            models = cli.client().backups.list_all_jobs()
+        except MtnCloudError as exc:
+            raise spec.error_for_output(exc) from exc
+        emit(cli, "backup-jobs", models, BACKUP_JOB_FIELDS, BACKUP_JOB_COLUMNS)
+        return EXIT_OK
+
+    @app.command("results")
+    def results(
+        ctx: typer.Context,
+        backup_id: int = typer.Argument(..., min=1, help="Positive backup configuration ID."),
+        output_format: str | None = typer.Option(  # noqa: UP007
+            None, "-o", "--output", help="Output format: json or table."
+        ),
+    ) -> int:
+        """List execution history without triggering a backup."""
+        cli = context(ctx, output_format)
+        try:
+            models = cli.client().backups.list_all_results(backup_id)
+        except MtnCloudError as exc:
+            raise spec.error_for_output(exc) from exc
+        emit(cli, "backup-results", models, BACKUP_RESULT_FIELDS, BACKUP_RESULT_COLUMNS, backup_id)
+        return EXIT_OK

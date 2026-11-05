@@ -10,6 +10,11 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only backup CLI configuration list/describe, job listing, execution
+  history and opt-in inventory, with filtered output and sanitized normal
+  errors. Added SDK exact-name backup lookup. Mocked regression coverage is
+  complete; live verification remains pending.
+
 - Typed backup result/job pages and all-page collection methods, parent-result
   validation and opt-in read-only live backup contract tests. Live verification
   remains pending.

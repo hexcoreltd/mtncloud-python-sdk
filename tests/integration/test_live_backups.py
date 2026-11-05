@@ -1,5 +1,7 @@
 """Opt-in backup discovery checks; never execute or delete a backup."""
 
+import json
+
 import pytest
 
 from mtn_cloud import MtnCloudClient
@@ -53,3 +55,45 @@ def test_live_backup_pagination(storage_client: MtnCloudClient, kind: str) -> No
             "Second page is empty despite total metadata reporting more items", pytrace=False
         )
     assert first.items[0].id != second.items[0].id
+
+
+@pytest.mark.parametrize("kind", ["inventory", "jobs", "results"])
+def test_live_backup_cli_read_commands(
+    storage_client: MtnCloudClient, capsys: pytest.CaptureFixture[str], kind: str
+) -> None:
+    from mtn_cloud.cli import main
+
+    backup_id = None
+    if kind == "inventory":
+        args = ["inventory", "--only", "backups"]
+    elif kind == "jobs":
+        args = ["backups", "jobs"]
+    else:
+        backups = storage_client.backups.list(limit=1)
+        if not backups:
+            pytest.skip("No backup available; CLI execution history was not exercised")
+        backup_id = backups[0].id
+        args = ["backups", "results", str(backup_id)]
+    assert main([*args, "-o", "json"], client_factory=lambda settings: storage_client) == 0
+    document = json.loads(capsys.readouterr().out)
+    if kind == "inventory":
+        assert document["schema"] == "mtncloud.inventory/v1"
+        assert list(document["resources"]) == ["backups"]
+        items = document["resources"]["backups"]["items"]
+    else:
+        assert document["schema"] == "mtncloud.list/v1"
+        assert document["resource"] == ("backup-jobs" if kind == "jobs" else "backup-results")
+        if kind == "results":
+            assert document["backup_id"] == backup_id
+        items = document["items"]
+    for item in items:
+        assert not {
+            "config",
+            "error_message",
+            "server",
+            "storage_provider",
+            "instance",
+            "container",
+            "job",
+            "site",
+        }.intersection(item)

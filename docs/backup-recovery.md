@@ -32,6 +32,36 @@ for result offsets and metadata interpretation still needs live verification.
 An explicitly mismatched `backupId` in a result fails parent validation;
 missing parent metadata is accepted without claiming ownership is verified.
 
+## Read-only CLI
+
+```bash
+mtncloud backups list --name nightly -o json
+mtncloud backups describe nightly
+mtncloud backups jobs -o json
+mtncloud backups results 42 -o json
+mtncloud inventory --only instances,backups -o json
+```
+
+Configuration names are matched exactly by `describe` across all pages.
+`list --name` uses the API's phrase search. Missing names exit 4 and ambiguous
+names exit 5. The SDK also exposes `cloud.backups.get_by_name(name)` with typed
+lookup errors.
+
+Jobs and results use `mtncloud.list/v1` envelopes with resource names
+`backup-jobs` and `backup-results`. Result output additionally includes a
+top-level `backup_id`: the requested configuration ID, not fabricated parent
+metadata on result items. Results require a positive numeric ID and preserve
+provider status strings. JSON and table outputs exclude raw error messages,
+result configuration and nested provider metadata.
+
+Group/zone scope is unsupported and fails with exit code 2 before requests.
+Configuration inventory is opt-in through `--only backups`; jobs and results
+are not inventory sections. Default inventory remains instances, networks
+and routers. Normal errors preserve exit codes and operation metadata while
+using generic messages. Debug traces may contain original provider details.
+
+There are no CLI execute, delete, or restore commands in this increment.
+
 ## Submit executions deliberately
 
 `execute(backup_id)` and `execute_job(job_id)` perform POST requests and return

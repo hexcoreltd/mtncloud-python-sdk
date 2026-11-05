@@ -330,12 +330,20 @@ mtncloud inventory --only instances,volumes --zone lagos-1 -o json
 mtncloud storage-buckets list --name backups
 mtncloud storage-buckets describe backups
 mtncloud inventory --only storage-buckets -o json
+mtncloud backups list --name nightly
+mtncloud backups describe nightly
+mtncloud backups jobs
+mtncloud backups results 42
+mtncloud inventory --only backups -o json
 mtncloud version
 ```
 
 - `mtncloud instances|networks|routers list [--group] [--zone] [--name]`
 - `mtncloud volumes list [--zone] [--name]`
 - `mtncloud storage-buckets list [--name]`
+- `mtncloud backups list [--name]`
+- `mtncloud backups jobs [-o json|table]`
+- `mtncloud backups results BACKUP_ID [-o json|table]`
 - `mtncloud <resource> describe <id-or-name> [--group] [--zone]`. An argument
   made only of digits is an ID and ignores `--group` and `--zone`. Anything
   else must match one name exactly. `list --name` instead passes the name to
@@ -371,6 +379,19 @@ the error type, HTTP status, request ID and exit code; SDK exception objects
 are not modified. `--debug` can still expose original error causes and must
 be handled as sensitive output. Object transfer and bucket mutations are
 not exposed by these CLI commands. Live validation remains pending.
+
+Backup configuration list/describe uses all pages and supports unique exact
+name lookup. `list --name` maps to the API's broader `phrase` filter. `jobs`
+lists job definitions; `results` lists execution history for a positive numeric
+configuration ID. These commands reject group/zone scope. Opt-in inventory via
+`--only backups` includes configurations only; job definitions and result
+history use their dedicated commands. Default inventory remains unchanged.
+
+Backup output excludes nested provider metadata, result `config`, and raw
+`error_message` fields. Normal SDK errors use generic messages while retaining
+types, operation metadata and exit codes; debug tracebacks remain sensitive.
+See the [backup guide](docs/backup-recovery.md) for the output contract and
+verification limits.
 
 Global options are `-o/--output json|table`, `--base-url`, `--timeout` and
 `--debug`. `-o` may go before the command or after it, and the value after the
