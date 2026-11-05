@@ -7,7 +7,9 @@ import pytest
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.modern_exceptions import (
+    AmbiguousLookupError,
     ForbiddenError,
+    LookupNotFoundError,
     MtnCloudError,
     NotFoundError,
     ServerError,
@@ -196,3 +198,110 @@ def test_readiness_waiter_observes_transition_and_limits_sleep(transport: Mock) 
 def test_deletion_waiter_confirms_absence(client: MtnCloudClient, transport: Mock) -> None:
     transport.request.return_value = HttpResponse(404, {}, {"message": "gone"})
     assert client.routers.wait_until_deleted(42) is True
+
+
+def router_with_interfaces(*interfaces: dict[str, object]) -> HttpResponse:
+    return HttpResponse(
+        200,
+        {},
+        {"networkRouter": {"id": 9, "name": "edge", "interfaces": list(interfaces)}},
+    )
+
+
+def subnets_of(network_id: int, *subnets: tuple[int, str]) -> HttpResponse:
+    return HttpResponse(
+        200,
+        {},
+        {
+            "subnets": [
+                {"id": sid, "cidr": cidr, "network": {"id": network_id}} for sid, cidr in subnets
+            ]
+        },
+    )
+
+
+def test_interface_without_subnet_reference_matches_by_parent_network_and_cidr(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    # Live MTN contract (2026-11-05): router interfaces carry `network` and
+    # `cidr` but no `networkSubnet` reference.
+    transport.request.side_effect = [
+        router_with_interfaces({"cidr": "10.0.0.0/24", "network": {"id": 72}}),
+        subnets_of(72, (45, "10.0.0.0/24")),
+    ]
+    interface = client.routers.get_interface(9, 45)
+    assert interface.network is not None and interface.network.id == 72
+    assert [call.args[:2] for call in transport.request.call_args_list] == [
+        ("GET", "/networks/routers/9"),
+        ("GET", "/networks/72/subnets"),
+    ]
+
+
+def test_subnet_reference_still_matches_without_extra_requests(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.return_value = router_with_interfaces(
+        {"cidr": "10.0.0.0/24", "networkSubnet": {"id": 45}, "network": {"id": 72}}
+    )
+    assert client.routers.get_interface(9, 45).subnet_id == 45
+    assert transport.request.call_count == 1
+
+
+def test_fallback_requires_the_subnet_cidr_to_match_the_interface(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.side_effect = [
+        router_with_interfaces({"cidr": "10.9.0.0/24", "network": {"id": 72}}),
+        subnets_of(72, (45, "10.0.0.0/24")),
+    ]
+    with pytest.raises(LookupNotFoundError):
+        client.routers.get_interface(9, 45)
+
+
+def test_fallback_does_not_match_a_subnet_on_another_network(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.side_effect = [
+        router_with_interfaces({"cidr": "10.0.0.0/24", "network": {"id": 72}}),
+        subnets_of(72, (46, "10.0.0.0/24")),
+    ]
+    with pytest.raises(LookupNotFoundError):
+        client.routers.get_interface(9, 45)
+
+
+def test_fallback_reports_ambiguous_interfaces(client: MtnCloudClient, transport: Mock) -> None:
+    transport.request.side_effect = [
+        router_with_interfaces(
+            {"cidr": "10.0.0.0/24", "network": {"id": 72}},
+            {"cidr": "10.0.0.0/24", "network": {"id": 72}},
+        ),
+        subnets_of(72, (45, "10.0.0.0/24")),
+    ]
+    with pytest.raises(AmbiguousLookupError):
+        client.routers.get_interface(9, 45)
+
+
+@pytest.mark.parametrize("status", [403, 404])
+def test_fallback_skips_networks_the_tenant_cannot_read(
+    client: MtnCloudClient, transport: Mock, status: int
+) -> None:
+    # Live MTN contract (2026-11-05): a router's external gateway interface is
+    # on a network the tenant cannot read, and its subnet listing returns 404.
+    transport.request.side_effect = [
+        router_with_interfaces(
+            {"cidr": "203.0.113.0/24", "network": {"id": 3}},
+            {"cidr": "10.0.0.0/24", "network": {"id": 72}},
+        ),
+        HttpResponse(status, {}, {"message": "Network not found"}),
+        subnets_of(72, (45, "10.0.0.0/24")),
+    ]
+    assert client.routers.get_interface(9, 45).network.id == 72
+
+
+def test_fallback_propagates_other_network_errors(client: MtnCloudClient, transport: Mock) -> None:
+    transport.request.side_effect = [
+        router_with_interfaces({"cidr": "10.0.0.0/24", "network": {"id": 72}}),
+        HttpResponse(503, {}, {"message": "busy"}),
+    ]
+    with pytest.raises(ServerError):
+        client.routers.get_interface(9, 45)

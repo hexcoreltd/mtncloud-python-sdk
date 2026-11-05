@@ -12,12 +12,15 @@ from pydantic import ValidationError as ModelValidationError
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.router import ExternalNetwork, Router, RouterCreate, RouterInterface
 from mtn_cloud.modern_exceptions import (
+    AmbiguousLookupError,
+    ForbiddenError,
     LookupNotFoundError,
     MtnCloudError,
     NotFoundError,
     TimeoutError,
 )
 from mtn_cloud.services.base import Page, Service
+from mtn_cloud.services.networks import NetworksService
 
 
 class RoutersService(Service[Router]):
@@ -83,18 +86,55 @@ class RoutersService(Service[Router]):
         Interfaces are currently exposed as part of the router resource, so
         this helper deliberately uses router retrieval instead of assuming a
         separate undocumented interface endpoint.
+
+        MTN Cloud interfaces carry a ``network`` reference and ``cidr`` but no
+        subnet reference. When no interface names the subnet directly, each
+        such interface's network is checked for the subnet, and an interface
+        matches only if it is on that network and has the subnet's CIDR.
+        Networks the caller cannot read, such as a router's external gateway
+        network, are skipped.
         """
 
-        matches = [
-            interface
-            for interface in self.list_interfaces(router_id)
-            if interface.subnet_id == subnet_id
-        ]
+        interfaces = self.list_interfaces(router_id)
+        matches = [interface for interface in interfaces if interface.subnet_id == subnet_id]
+        if not matches:
+            matches = self._match_by_parent_network(interfaces, subnet_id)
         if not matches:
             raise LookupNotFoundError(f"Router {router_id} has no interface for subnet {subnet_id}")
         if len(matches) > 1:
-            raise ValueError(f"Router {router_id} has multiple interfaces for subnet {subnet_id}")
+            raise AmbiguousLookupError(
+                f"Router {router_id} has multiple interfaces for subnet {subnet_id}"
+            )
         return matches[0]
+
+    def _match_by_parent_network(
+        self, interfaces: List[RouterInterface], subnet_id: int
+    ) -> List[RouterInterface]:
+        unreferenced = [
+            interface
+            for interface in interfaces
+            if interface.subnet_id is None and interface.network is not None
+        ]
+        networks = NetworksService(self._core)
+        for network_id in sorted({i.network.id for i in unreferenced if i.network is not None}):
+            try:
+                candidates = networks.list_subnets(network_id)
+            except (NotFoundError, ForbiddenError):
+                # Gateway interfaces sit on provider networks the tenant cannot
+                # read; the requested subnet cannot be identified there.
+                continue
+            subnet = next((s for s in candidates if s.id == subnet_id), None)
+            if subnet is None:
+                continue
+            return [
+                interface
+                for interface in unreferenced
+                if interface.network is not None
+                and interface.network.id == network_id
+                and subnet.cidr is not None
+                and interface.cidr == subnet.cidr
+            ]
+        return []
 
     def list_types(self, *, limit: int = 100, offset: int = 0) -> List[dict[str, Any]]:
         """List router types exposed by the control plane."""

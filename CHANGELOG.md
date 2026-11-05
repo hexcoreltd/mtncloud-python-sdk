@@ -179,6 +179,11 @@ would normally require a major release in a mature stable SDK.
 ### Fixed
 
 - Live MTN contract mismatches found on 2026-11-05:
+  - `routers.get_interface(router_id, subnet_id)` finds MTN interfaces, which
+    carry a network reference and CIDR but no subnet reference, by checking each
+    interface's network for the subnet and matching its CIDR. Networks the
+    tenant cannot read, such as gateway networks, are skipped. Ambiguity now
+    raises `AmbiguousLookupError` (still a `ValueError`).
   - `networks.list_subnets` drops subnets whose parent reference names another
     network instead of raising. Just after a network is created, MTN returns
     another network's subnet for its subnet listing until the new subnet

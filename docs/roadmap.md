@@ -279,8 +279,10 @@ Provider behaviour found by these runs:
 
 - Just after a network is created, its subnet listing returns another
   network's subnet for about 10 seconds. `list_subnets` drops it.
-- Router interfaces reference the network and CIDR, not the subnet, so
-  `routers.get_interface(router_id, subnet_id)` cannot match on MTN yet.
+- Router interfaces reference the network and CIDR, not the subnet.
+  `routers.get_interface(router_id, subnet_id)` now falls back to the subnet's
+  parent network and CIDR, skipping gateway networks the tenant cannot read
+  (verified live against two existing routers).
 
 Still to implement and verify:
 
