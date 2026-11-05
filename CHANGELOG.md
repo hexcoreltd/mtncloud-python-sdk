@@ -10,6 +10,11 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only CLI storage-bucket configuration list/describe and opt-in inventory,
+  with scalar-only output, sanitized normal errors and pre-request rejection
+  of unsupported group/zone scopes. Default inventory remains unchanged;
+  live validation is pending.
+
 - Opt-in read-only object-storage configuration contract tests, sharing the
   authenticated storage fixture. Live verification remains pending.
 

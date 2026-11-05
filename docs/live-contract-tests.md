@@ -96,3 +96,10 @@ not printed or saved. Empty collections skip detail checks; missing/insufficient
 pagination metadata skips the pagination check. Authentication, permission and
 transport errors fail the run. The suite does not create/delete configurations
 or S3 objects; mutation lifecycle verification remains pending.
+
+The object-storage suite also includes a CLI `inventory --only storage-buckets`
+check for the output envelope and credential-bearing field exclusions. Its
+live validation remains pending. CLI scope validation, pagination, JSON/table
+projection, error-message sanitization and exit codes have mocked regression
+coverage. Debug tracebacks remain sensitive because they include original
+exception causes.

@@ -13,6 +13,13 @@ provider metadata. The original design below records the initial three-resource
 release; see README for the extended command contract. Live validation of the
 volume CLI remains pending.
 
+Storage extension (2026-11-05): `storage-buckets` adds read-only configuration
+list/describe and opt-in inventory. It supports neither group nor zone scope,
+and exposes only an allowlist of operational scalar fields. Normal CLI bucket
+errors use a generic message while preserving exception types and operation
+metadata. Debug traces may expose original causes. Default inventory remains
+the original three resources; bucket CLI live verification remains pending.
+
 ## 1. Goal
 
 Ship a read-only `mtncloud` command-line interface, inside this repository and

@@ -327,11 +327,15 @@ mtncloud inventory --only instances,routers -o json > inventory.json
 mtncloud volumes list --zone lagos-1
 mtncloud volumes describe app-data --zone lagos-1
 mtncloud inventory --only instances,volumes --zone lagos-1 -o json
+mtncloud storage-buckets list --name backups
+mtncloud storage-buckets describe backups
+mtncloud inventory --only storage-buckets -o json
 mtncloud version
 ```
 
 - `mtncloud instances|networks|routers list [--group] [--zone] [--name]`
 - `mtncloud volumes list [--zone] [--name]`
+- `mtncloud storage-buckets list [--name]`
 - `mtncloud <resource> describe <id-or-name> [--group] [--zone]`. An argument
   made only of digits is an ID and ignores `--group` and `--zone`. Anything
   else must match one name exactly. `list --name` instead passes the name to
@@ -352,6 +356,21 @@ volumes explicitly with `--only volumes` or a mixed selection such as
 `is_unattached`, and the `is_available` hint. Omitted attachment fields remain
 omitted; explicit null values are preserved. Nested provider metadata
 (`storage_type`, `datastore`, and `zone`) is excluded from CLI output.
+
+Storage-bucket commands list and describe control-plane configurations by ID
+or exact name. They accept neither `--group` nor `--zone`; unsupported scope
+flags fail with exit code 2 before requests, including mixed inventory
+selections. Include them explicitly using `--only storage-buckets` or, without
+scope flags, `--only instances,volumes,storage-buckets`. Default inventory
+sections remain unchanged.
+
+Bucket JSON and tables expose operational scalar fields only. Provider
+`config`, storage-server metadata and unrecognized response fields are not
+included. Normal bucket error output uses a generic message while retaining
+the error type, HTTP status, request ID and exit code; SDK exception objects
+are not modified. `--debug` can still expose original error causes and must
+be handled as sensitive output. Object transfer and bucket mutations are
+not exposed by these CLI commands. Live validation remains pending.
 
 Global options are `-o/--output json|table`, `--base-url`, `--timeout` and
 `--debug`. `-o` may go before the command or after it, and the value after the

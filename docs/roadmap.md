@@ -449,6 +449,11 @@ mutation services.
   attachment evidence and scalar-field output. Existing default inventory
   remains unchanged. Mocked CLI regression coverage is complete; live verification
   is deferred until control-plane recovery.
+- Storage-bucket configuration list/describe and opt-in inventory, using an
+  explicit scalar-field projection and sanitized normal error messages.
+  Unsupported group/zone scope fails before requests. Mocked regression
+  coverage is complete and a read-only live CLI check is prepared; live
+  verification is deferred. No object data-plane or CLI mutation support is implied.
 - JSON output for automation
 - Human-readable tables for operators
 - `plan`, `apply`, `wait`, `destroy`, and `inventory` commands

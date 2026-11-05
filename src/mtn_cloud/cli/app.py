@@ -87,13 +87,14 @@ def _select_specs(only: str | None) -> list[ResourceSpec]:
     return [spec for name, spec in REGISTRY.items() if name in names]
 
 
-def _validate_group_scope(specs: list[ResourceSpec], group: str | None) -> None:
-    unsupported = [spec.name for spec in specs if not spec.supports_group]
-    if group is not None and unsupported:
-        raise typer.BadParameter(
-            f"{', '.join(unsupported)} do not support group scope; use --zone instead",
-            param_hint="--group",
-        )
+def _validate_scopes(specs: list[ResourceSpec], group: str | None, zone: str | None) -> None:
+    for name, value in (("group", group), ("zone", zone)):
+        unsupported = [spec.name for spec in specs if not getattr(spec, f"supports_{name}")]
+        if value is not None and unsupported:
+            raise typer.BadParameter(
+                f"{', '.join(unsupported)} do not support {name} scope",
+                param_hint=f"--{name}",
+            )
 
 
 def build_app(
@@ -168,7 +169,7 @@ def build_app(
             cli.fmt = _validate_format(output_format)
             state.fmt = cli.fmt
         specs = _select_specs(only)
-        _validate_group_scope(specs, group)
+        _validate_scopes(specs, group, zone)
         client = cli.client()
         scope = resolve_scope(client, group=group, zone=zone)
         sections = inventory_module.collect_sections(client, scope, specs)
@@ -227,7 +228,9 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         group: str | None = typer.Option(  # noqa: UP007
             None, "--group", help="Group name or ID.", hidden=not spec.supports_group
         ),
-        zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
+        zone: str | None = typer.Option(  # noqa: UP007
+            None, "--zone", help="Zone name or ID.", hidden=not spec.supports_zone
+        ),
         name: str | None = typer.Option(  # noqa: UP007
             None,
             "--name",
@@ -242,13 +245,18 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         """List resources."""
         cli: CliContext = ctx.obj
         apply_format(cli, output_format)
-        _validate_group_scope([spec], group)
+        _validate_scopes([spec], group, zone)
         client = cli.client()
         scope = resolve_scope(client, group=group, zone=zone)
         filters: dict[str, Any] = dict(scope_filters(scope))
         if name is not None:
             filters[spec.name_filter] = name
-        models = spec.service(client).list_all(**filters)
+        try:
+            models = spec.service(client).list_all(**filters)
+        except MtnCloudError as exc:
+            if spec.redact_errors:
+                raise spec.error_for_output(exc) from exc
+            raise
         if cli.fmt == "json":
             items = [spec.dump_item(m) for m in models]
             output.emit_json(output.list_document(spec.name, items))
@@ -263,7 +271,9 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         group: str | None = typer.Option(  # noqa: UP007
             None, "--group", help="Group name or ID.", hidden=not spec.supports_group
         ),
-        zone: str | None = typer.Option(None, "--zone", help="Zone name or ID."),  # noqa: UP007
+        zone: str | None = typer.Option(  # noqa: UP007
+            None, "--zone", help="Zone name or ID.", hidden=not spec.supports_zone
+        ),
         output_format: str | None = typer.Option(  # noqa: UP007
             None, "-o", "--output", help="Output format: json or table."
         ),
@@ -271,17 +281,21 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         """Describe one resource by numeric ID or exact name."""
         cli: CliContext = ctx.obj
         apply_format(cli, output_format)
-        _validate_group_scope([spec], group)
+        _validate_scopes([spec], group, zone)
         client = cli.client()
         service = spec.service(client)
-        if is_id(target):
-            model = service.get(int(target))
-        else:
-            scope = resolve_scope(client, group=group, zone=zone)
-            try:
+        try:
+            if is_id(target):
+                model = service.get(int(target))
+            else:
+                scope = resolve_scope(client, group=group, zone=zone)
                 model = service.get_by_name(target, **scope_filters(scope))
-            except AmbiguousLookupError as exc:
-                raise AmbiguousNameError(str(exc)) from exc
+        except AmbiguousLookupError as exc:
+            raise AmbiguousNameError(str(exc)) from exc
+        except MtnCloudError as exc:
+            if spec.redact_errors:
+                raise spec.error_for_output(exc) from exc
+            raise
         if cli.fmt == "json":
             output.emit_json(output.describe_document(spec.name, spec.dump_item(model)))
         else:

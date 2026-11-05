@@ -712,7 +712,9 @@ def test_malformed_payload_does_not_leak_payload(
     assert json.loads(captured.err)["error"]["type"] == "InternalError"
 
 
-@pytest.mark.parametrize("resource", ["instances", "networks", "routers", "volumes"])
+@pytest.mark.parametrize(
+    "resource", ["instances", "networks", "routers", "volumes", "storage-buckets"]
+)
 def test_resource_without_subcommand_prints_help_and_exits_0(
     resource: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -966,3 +968,256 @@ def test_volume_help_lists_supported_scope_only(
     help_text = capsys.readouterr().out
     assert "--zone" in help_text
     assert "--group" not in help_text
+
+
+# --- storage bucket configurations --------------------------------------------------------
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("command", ["list", "describe", "inventory"])
+@pytest.mark.parametrize("fmt", ["json", "table"])
+def test_bucket_cli_output_excludes_provider_credentials(
+    capsys: pytest.CaptureFixture[str], command: str, fmt: str
+) -> None:
+    bucket = {
+        "id": 42,
+        "name": "backups",
+        "providerType": "s3",
+        "bucketName": "app-backups",
+        "active": True,
+        "readOnly": False,
+        "config": {
+            "accessKey": "unit-access",
+            "secretKey": "unit-secret",
+            "endpoint": "unit-endpoint",
+        },
+        "storageServer": {"id": 9, "name": "unit-provider-secret"},
+        "unexpectedCredential": "unit-extra-secret",
+    }
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {"storageBucket": bucket} if command == "describe" else {"storageBuckets": [bucket]}
+    )
+    args = {
+        "list": ["storage-buckets", "list"],
+        "describe": ["storage-buckets", "describe", "42"],
+        "inventory": ["inventory", "--only", "storage-buckets"],
+    }[command]
+    assert _run_with(transport, [*args, "-o", fmt]) == 0
+    captured = capsys.readouterr()
+    for marker in (
+        "unit-access",
+        "unit-secret",
+        "unit-endpoint",
+        "unit-provider-secret",
+        "unit-extra-secret",
+    ):
+        assert marker not in captured.out + captured.err
+    assert captured.err == ""
+    if fmt == "json":
+        document = json.loads(captured.out)
+        if command == "inventory":
+            assert list(document["resources"]) == ["storage-buckets"]
+            item = document["resources"]["storage-buckets"]["items"][0]
+        else:
+            item = document["item"] if command == "describe" else document["items"][0]
+        assert item == {
+            "id": 42,
+            "name": "backups",
+            "provider_type": "s3",
+            "bucket_name": "app-backups",
+            "active": True,
+            "read_only": False,
+        }
+
+
+@pytest.mark.usefixtures("token")
+def test_bucket_cli_name_filter_and_pagination(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _resp({"storageBuckets": [{"id": 1, "name": "backups-a"}], "meta": {"total": 2}}),
+        _resp({"storageBuckets": [{"id": 2, "name": "backups-b"}], "meta": {"total": 2}}),
+    ]
+    assert _run_with(transport, ["storage-buckets", "list", "--name", "backups"]) == 0
+    assert json.loads(capsys.readouterr().out)["count"] == 2
+    assert [call.kwargs["params"] for call in transport.request.call_args_list] == [
+        {"max": 100, "offset": 0, "name": "backups"},
+        {"max": 100, "offset": 1, "name": "backups"},
+    ]
+    assert all(
+        call.args == ("GET", "/storage-buckets") for call in transport.request.call_args_list
+    )
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize(
+    ("items", "code"),
+    [
+        ([{"id": 1, "name": "backups"}], 0),
+        ([{"id": 1, "name": "backups-old"}], 4),
+        ([{"id": 1, "name": "backups"}, {"id": 2, "name": "backups"}], 5),
+    ],
+)
+def test_bucket_cli_exact_name_lookup_exit_codes(
+    capsys: pytest.CaptureFixture[str], items: list[dict[str, Any]], code: int
+) -> None:
+    transport = Mock()
+    transport.request.return_value = _resp({"storageBuckets": items})
+    assert _run_with(transport, ["storage-buckets", "describe", "backups"]) == code
+    captured = capsys.readouterr()
+    if code == 0:
+        assert json.loads(captured.out)["item"]["name"] == "backups"
+    else:
+        assert captured.out == ""
+        assert json.loads(captured.err)["schema"] == "mtncloud.error/v1"
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("scope", ["--group", "--zone"])
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["storage-buckets", "list"],
+        ["storage-buckets", "describe", "42"],
+        ["storage-buckets", "describe", "backups"],
+        ["inventory", "--only", "storage-buckets"],
+        ["inventory", "--only", "instances,storage-buckets"],
+    ],
+)
+def test_bucket_cli_unsupported_scope_fails_before_any_api_call(
+    capsys: pytest.CaptureFixture[str], scope: str, args: list[str]
+) -> None:
+    transport = Mock()
+    assert _run_with(transport, [*args, scope, "production"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "scope" in captured.err
+    transport.request.assert_not_called()
+
+
+@pytest.mark.parametrize("command", ["list", "describe"])
+def test_bucket_cli_help_does_not_offer_unsupported_scopes(
+    capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    assert _run(["storage-buckets", command, "--help"]) == 0
+    help_text = capsys.readouterr().out
+    assert "--zone" not in help_text
+    assert "--group" not in help_text
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize(
+    ("status", "code", "error_type"),
+    [
+        (403, 6, "ForbiddenError"),
+        (404, 4, "NotFoundError"),
+        (409, 7, "ConflictError"),
+        (503, 7, "ServerError"),
+    ],
+)
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["storage-buckets", "list"],
+        ["storage-buckets", "describe", "42"],
+        ["inventory", "--only", "storage-buckets"],
+    ],
+)
+def test_bucket_cli_sanitizes_provider_errors_preserving_exit_codes(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    code: int,
+    error_type: str,
+    args: list[str],
+) -> None:
+    monkeypatch.setenv("MTN_CLOUD_MAX_RETRIES", "0")
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        status,
+        {},
+        {"message": "unit-secret", "config": {"secretKey": "unit-secret"}},
+        request_id="req-bucket",
+    )
+    assert _run_with(transport, args) == code
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "unit-secret" not in captured.err
+    error = json.loads(captured.err)["error"]
+    assert error["type"] == error_type
+    assert error["status_code"] == status
+    assert error["request_id"] == "req-bucket"
+    assert error["method"] == "GET"
+
+
+@pytest.mark.usefixtures("token")
+def test_bucket_inventory_partial_failure_sanitizes_error(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    transport = _inventory_transport({"/storage-buckets": _resp({"message": "unit-secret"}, 403)})
+    assert _run_with(transport, ["inventory", "--only", "instances,storage-buckets"]) == 3
+    captured = capsys.readouterr()
+    assert "unit-secret" not in captured.out + captured.err
+    document = json.loads(captured.out)
+    assert document["resources"]["instances"]["count"] == 1
+    assert document["resources"]["storage-buckets"]["error"]["type"] == "ForbiddenError"
+
+
+@pytest.mark.parametrize(
+    "original",
+    [
+        ForbiddenError(
+            "unit-secret", status_code=403, response={"secret": "unit-secret"}, request_id="req-1"
+        ),
+        ModernTimeoutError("unit-secret", timeout=5, method="GET", path="/storage-buckets/7"),
+    ],
+)
+def test_bucket_error_redaction_preserves_error_class_without_mutating_original(
+    original: MtnCloudError,
+) -> None:
+    from mtn_cloud.cli.registry import REGISTRY
+
+    sanitized = REGISTRY["storage-buckets"].error_for_output(original)
+    assert type(sanitized) is type(original)
+    assert sanitized is not original
+    assert "unit-secret" not in str(sanitized) + repr(sanitized)
+    assert sanitized.response is None
+    assert sanitized.status_code == original.status_code
+    assert sanitized.request_id == original.request_id
+    assert original.message == "unit-secret"
+    if isinstance(original, ModernTimeoutError):
+        assert sanitized.timeout == original.timeout
+
+
+@pytest.mark.usefixtures("token")
+@pytest.mark.parametrize("command", ["list", "describe", "inventory"])
+def test_bucket_cli_malformed_payload_does_not_leak_provider_config(
+    capsys: pytest.CaptureFixture[str], command: str
+) -> None:
+    invalid = {"name": "backups", "config": {"secretKey": "unit-secret"}}
+    transport = Mock()
+    transport.request.return_value = _resp(
+        {"storageBucket": invalid} if command == "describe" else {"storageBuckets": [invalid]}
+    )
+    args = {
+        "list": ["storage-buckets", "list"],
+        "describe": ["storage-buckets", "describe", "42"],
+        "inventory": ["inventory", "--only", "storage-buckets"],
+    }[command]
+    assert _run_with(transport, args) == (7 if command == "describe" else 1)
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "unit-secret" not in captured.err
+
+
+@pytest.mark.usefixtures("token")
+def test_bucket_table_errors_are_sanitized(capsys: pytest.CaptureFixture[str]) -> None:
+    transport = Mock()
+    transport.request.return_value = HttpResponse(
+        403, {}, {"message": "unit-secret"}, request_id="req-bucket"
+    )
+    assert _run_with(transport, ["storage-buckets", "list", "-o", "table"]) == 6
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "unit-secret" not in captured.err
+    assert "ForbiddenError" in captured.err and "req-bucket" in captured.err

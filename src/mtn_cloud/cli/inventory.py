@@ -27,7 +27,7 @@ def collect_sections(
         try:
             sections.append((spec, list(spec.service(client).list_all(**filters))))
         except MtnCloudError as exc:
-            sections.append((spec, exc))
+            sections.append((spec, spec.error_for_output(exc)))
     return sections
 
 

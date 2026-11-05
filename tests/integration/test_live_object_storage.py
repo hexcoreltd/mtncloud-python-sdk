@@ -1,5 +1,7 @@
 """Opt-in storage configuration reads, without bucket or object mutations."""
 
+import json
+
 import pytest
 
 from mtn_cloud import MtnCloudClient
@@ -36,3 +38,25 @@ def test_live_storage_bucket_pagination(storage_client: MtnCloudClient) -> None:
             "Second page is empty despite total metadata reporting more items", pytrace=False
         )
     assert first_page.items[0].id != second_page.items[0].id
+
+
+def test_live_storage_bucket_cli_inventory(
+    storage_client: MtnCloudClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from mtn_cloud.cli import main
+
+    code = main(
+        ["inventory", "--only", "storage-buckets", "--output", "json"],
+        client_factory=lambda settings: storage_client,
+    )
+    assert code == 0
+    document = json.loads(capsys.readouterr().out)
+    assert document["schema"] == "mtncloud.inventory/v1"
+    assert list(document["resources"]) == ["storage-buckets"]
+    section = document["resources"]["storage-buckets"]
+    assert section["count"] == len(section["items"])
+    for item in section["items"]:
+        assert "id" in item
+        assert not {"config", "storage_server", "account_id", "retention_provider"}.intersection(
+            item
+        )
