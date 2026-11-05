@@ -122,4 +122,5 @@ config.local.yml
 # IDE specifics
 .vscode/
 .idea/
+.claude/
 
