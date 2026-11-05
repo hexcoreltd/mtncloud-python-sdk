@@ -386,6 +386,21 @@ resolved fails the whole command.
 Closing a pipe early, for example `mtncloud instances list | head`, exits 0
 quietly.
 
+## Control-plane availability monitor
+
+Run the standalone monitor from an external host to observe console HTTP
+availability without SDK credentials:
+
+```bash
+uv run python tools/monitor_control_plane.py
+uv run python tools/monitor_control_plane.py --watch --interval 60 --failure-threshold 3
+```
+
+It emits timestamped JSON with HTTP status, latency, consecutive failures,
+and alert/recovery events. Redirects count as unsuccessful. See the
+[deployment and signal guide](docs/control-plane-monitor.md) for exit codes,
+configuration, and limitations.
+
 ## Error handling
 
 Modern client operations raise exceptions from `mtn_cloud.modern_exceptions`:

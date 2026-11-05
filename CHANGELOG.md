@@ -10,6 +10,9 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Standalone external control-plane HTTP monitor with JSON records, timeout
+  handling, unauthenticated probes, and failure/recovery events in watch mode.
+
 - Optional read-only network creation preflight with `networks.validate_create`
   and `create(validate=True)`, checking addressing and placement dependencies.
   Mocked regression coverage is complete; live verification is pending.

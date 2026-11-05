@@ -49,7 +49,7 @@ jobs:
         run: |
           uv run ruff format --check .
           uv run ruff check .
-          uv run mypy src/mtn_cloud
+          uv run mypy src/mtn_cloud tools
           uv run pytest -q
           git diff --check
 

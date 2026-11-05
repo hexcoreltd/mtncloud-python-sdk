@@ -46,7 +46,7 @@ jobs:
         run: uv run ruff check .
 
       - name: Run type checks
-        run: uv run mypy src/mtn_cloud
+        run: uv run mypy src/mtn_cloud tools
 
       - name: Verify package metadata and build
         run: uv build

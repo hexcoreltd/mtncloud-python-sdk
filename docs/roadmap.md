@@ -370,6 +370,13 @@ availability consequences without a direct user request at runtime.
 
 ### Milestone 7 — Observability and operations
 
+Implemented: standalone external HTTP control-plane monitor under `tools/`,
+with unauthenticated `/ping` checks, JSON records, latency, failure thresholds
+and recovery events. This measures HTTP availability only; authenticated
+readiness, notification delivery and wider observability remain pending.
+See [monitor deployment guide](control-plane-monitor.md). Mocked regression
+coverage is complete; the healthy MTN `/ping` body contract remains unverified.
+
 - Instance and database metrics
 - Logs and log destinations
 - Health and availability checks
