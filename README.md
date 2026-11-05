@@ -163,6 +163,7 @@ The current modern service surface is:
 | `cloud.security_groups` | Manage security groups and firewall rules |
 | `cloud.backups` | Inspect backup configurations, jobs, and results |
 | `cloud.volumes` | Discover block-storage volumes, attachments, and volume types |
+| `cloud.virtual_images` | Discover image metadata with pagination and exact-name lookup (live verification pending) |
 | `cloud.storage_buckets` | Manage S3-compatible storage-provider configurations |
 | `cloud.apps` | Discover provisioned applications and catalog deployments |
 
@@ -174,6 +175,11 @@ Some MTN Cloud endpoints are permission-scoped. A valid credential may be
 able to access tenant-scoped endpoints while receiving `403 Forbidden` from
 broader catalog endpoints. The SDK surfaces these responses as typed errors;
 it does not silently broaden permissions or substitute data.
+
+Virtual-image discovery uses the legacy endpoint and upstream reference;
+MTN-specific live validation remains pending. See the
+[virtual-image guide](docs/virtual-images.md) for filters, metadata handling
+and prepared read-only contract checks.
 
 ### Validate network creation
 

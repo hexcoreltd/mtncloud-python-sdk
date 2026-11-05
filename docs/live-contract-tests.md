@@ -2,6 +2,22 @@
 
 The live tests use credentials from `.env` through `ClientSettings`.
 
+## Virtual images (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_virtual_images.py -q -x --tb=short
+```
+
+These GET-only checks cover collection/detail envelopes, pagination and an
+optional unique-name lookup with `MTN_CLOUD_TEST_IMAGE_NAME`. They preserve
+the provider's default image scope. Empty/insufficient collections skip
+affected item and pagination checks. Origin-filter behavior, image lifecycle
+and provisioning compatibility remain pending; see the
+[virtual-image guide](virtual-images.md). No images or instances are created.
+
+## Running the suites
+
 Run read-only checks:
 
 ```bash

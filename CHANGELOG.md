@@ -10,6 +10,12 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Modern read-only virtual-image service with typed metadata, pagination,
+  exact-name lookup, image-origin filters and pre-request input validation.
+  Image tags accept upstream name/value objects alongside legacy strings;
+  rendered validation errors hide inputs. Added an example and guarded GET-only
+  contract checks. MTN-specific live verification remains pending.
+
 - Exact-name application SDK lookup and read-only `apps` CLI list/describe and
   opt-in inventory, with group scope and filtered output. Prepared GET-only
   application contract tests; live validation remains pending.
@@ -89,6 +95,9 @@ would normally require a major release in a mature stable SDK.
 - Modern read-only provisioned-application discovery at `/apps`.
 
 ### Changed
+
+- Shared collection pagination no longer treats page-local `meta.size` as the
+  collection total when `meta.total` is absent, avoiding premature truncation.
 
 - Shared `list_all()` now rejects detected repeated resource IDs across pages
   and unexpected nonempty-page offsets instead of returning duplicate data;

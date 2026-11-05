@@ -137,6 +137,7 @@ They should not be hidden behind one ambiguous client abstraction.
 - Router and external-network discovery plus lifecycle waiters
 - Snapshot and backup discovery and lifecycle operations
 - Storage volume and volume-type discovery
+- Read-only virtual-image discovery and metadata (MTN live verification pending)
 - S3-compatible storage bucket configuration CRUD
 - Provisioned-application discovery
 - Unit tests and guarded live contract tests
@@ -296,6 +297,14 @@ Progress: **read-only discovery and selection implemented; lifecycle pending**
 - Mocked backup regressions pass and read-only configuration/result/job live
   checks are prepared. Offset support and lifecycle behavior remain pending
   live verification; see [backup guide](backup-recovery.md).
+- Modern virtual-image list/page/all-page/get/exact-name lookup is implemented,
+  using the existing endpoint and upstream image-origin filters. Models accept
+  named metadata tags alongside legacy strings and retain unknown visibility
+  and origin as unknown. Mocked regressions, an example and guarded read-only
+  live checks are prepared; MTN verification remains pending. See the
+  [virtual-image guide](virtual-images.md).
+- Shared pagination treats `meta.size` as page-local when `meta.total` is
+  absent, avoiding truncated discovery across modern collection services.
 
 Still to implement and verify:
 
@@ -303,7 +312,8 @@ Still to implement and verify:
 - Instance volume attachment/detachment
 - Volume expansion
 - Snapshots and restore workflows
-- Virtual images and image metadata
+- Live verification of image discovery, metadata and origin-filter semantics
+- Image import/upload, deletion and provisioning compatibility
 - Backup jobs, schedules, retention, and restore
 - Cross-zone or off-site recovery capabilities where supported
 - Recovery waiters and operation cleanup

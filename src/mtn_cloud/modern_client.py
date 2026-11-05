@@ -17,6 +17,7 @@ from mtn_cloud.services.resource_pools import ResourcePoolsService
 from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
 from mtn_cloud.services.storage_buckets import StorageBucketsService
+from mtn_cloud.services.virtual_images import VirtualImagesService
 from mtn_cloud.services.volumes import VolumesService
 from mtn_cloud.services.zones import ZonesService
 from mtn_cloud.settings import ClientSettings
@@ -28,8 +29,8 @@ class MtnCloudClient:
 
     Resource services are exposed as lazily created properties (for example
     ``instances``, ``networks``, ``routers`` and ``volumes``). Each service
-    covers only operations whose MTN Cloud contracts have been verified; new
-    operations are added as their live contracts are confirmed.
+    covers explicit API contracts. See the roadmap for the implementation and
+    live-verification status of individual operations.
     """
 
     def __init__(
@@ -66,6 +67,7 @@ class MtnCloudClient:
         self._volumes: VolumesService | None = None
         self._storage_buckets: StorageBucketsService | None = None
         self._apps: ApplicationsService | None = None
+        self._virtual_images: VirtualImagesService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -188,6 +190,13 @@ class MtnCloudClient:
         if self._apps is None:
             self._apps = ApplicationsService(self._core)
         return self._apps
+
+    @property
+    def virtual_images(self) -> VirtualImagesService:
+        """Access read-only virtual-image discovery and metadata."""
+        if self._virtual_images is None:
+            self._virtual_images = VirtualImagesService(self._core)
+        return self._virtual_images
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

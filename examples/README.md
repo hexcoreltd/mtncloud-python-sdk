@@ -11,6 +11,8 @@ uv run python examples/basic_usage.py
 Available examples:
 
 - `basic_usage.py` — authenticated, read-only resource discovery.
+- `list_virtual_images.py` — read-only image metadata discovery with optional
+  name, format and origin filters, without printing user-data or provider details.
 - `create_instance.py` — safe provisioning resolution with dry-run as the
   default; pass `--apply` to create an instance.
 - `create_router.py` — explicit router creation with optional cleanup through

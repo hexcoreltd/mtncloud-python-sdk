@@ -63,8 +63,8 @@ class Service(Generic[T]):
         if limit is None:
             limit = self._integer(meta.get("limit"), default=self._integer(requested.get("max")))
         total = self._integer(meta.get("total"))
-        if total is None:
-            total = self._integer(meta.get("size"))
+        # Morpheus `size` counts this page, not the full collection. Without
+        # `total`, traversal must use page fullness rather than stop at `size`.
         return Page(
             items=[self.model.model_validate(item) for item in raw_items],
             offset=offset,

@@ -57,7 +57,7 @@ from mtn_cloud.models.storage_bucket import (
     StorageBucketUpdate,
 )
 from mtn_cloud.models.user import User, UserRole
-from mtn_cloud.models.virtual_image import VirtualImage
+from mtn_cloud.models.virtual_image import VirtualImage, VirtualImageTag
 from mtn_cloud.models.volume import StorageVolume, StorageVolumeType, Volume
 
 __all__ = [
@@ -140,4 +140,5 @@ __all__ = [
     "BackupResult",
     # Virtual Image
     "VirtualImage",
+    "VirtualImageTag",
 ]
