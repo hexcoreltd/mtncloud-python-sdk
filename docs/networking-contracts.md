@@ -74,7 +74,15 @@ The suite first checks authenticated connectivity, then checks collection
 envelopes, detail retrieval, subnet parent references, and embedded router
 interfaces. Authentication, permission and connection failures fail the run.
 An empty collection skips the associated detail check; that skip must not be
-reported as a verified contract. The suite performs GET requests only.
+reported as a verified contract. Tests marked `mutation` create and delete
+resources and run only with `MTN_CLOUD_ALLOW_MUTATIONS=1`; all others perform
+GET requests only.
+
+Observed on 2026-11-05: immediately after a network is created,
+`GET /networks/{id}/subnets` can return a subnet belonging to a different
+network for about 10 seconds. `list_subnets` drops subnets whose parent
+reference names another network, so callers see an empty list until the new
+subnet exists.
 
 Once access works, capture sanitized successful response fixtures, implement
 the next verified mutation, and run its guarded lifecycle test with cleanup.
