@@ -93,6 +93,22 @@ this test; it creates a router and removes that router in `finally`, including
 when creation succeeds but a follow-up read or waiter fails. The subnet and
 its parent network are retained.
 
+`test_live_network_and_router_lifecycle` needs no existing subnet. It creates a
+throwaway network (CIDR from `MTN_CLOUD_TEST_NETWORK_CIDR`, default
+`10.254.254.0/24`) in the selected group, zone and pool with
+`MTN_CLOUD_TEST_NETWORK_TYPE_ID`, waits for its subnet, attaches a router, then
+deletes the router and the network. Cleanup also finds the network by its
+unique name if the create request timed out. Right after creation, MTN Cloud
+can answer the subnet listing with another network's subnet; the SDK drops it,
+so the test simply waits for the new network's own subnet.
+
+The VM test (`test_live_create_wait_delete`) never picks the first type, pool
+or plan the API returns. Set `MTN_CLOUD_TEST_GROUP_ID`, `MTN_CLOUD_TEST_ZONE_ID`,
+`MTN_CLOUD_TEST_POOL_ID`, `MTN_CLOUD_TEST_PLAN_ID`, `MTN_CLOUD_TEST_LAYOUT_ID`,
+`MTN_CLOUD_TEST_NETWORK_ID` and `MTN_CLOUD_TEST_INSTANCE_TYPE_CODE`. It dry-runs
+the selection, provisions one instance, waits until it is running, then
+force-deletes it, cleaning up by name if provisioning fails partway.
+
 Set `MTN_CLOUD_TEST_GROUP_ID`, `MTN_CLOUD_TEST_ZONE_ID`,
 `MTN_CLOUD_TEST_POOL_ID`, and `MTN_CLOUD_TEST_ROUTER_SUBNET_ID` to positive IDs
 for that test environment, then run:

@@ -151,17 +151,20 @@ class NetworksService(Service[Network]):
         return True
 
     def list_subnets(self, network_id: int) -> List[Subnet]:
-        """List and validate subnets belonging to a network."""
+        """List the subnets belonging to a network.
+
+        Subnets whose parent reference names a different network are dropped.
+        Right after a network is created, MTN Cloud has been observed to answer
+        this request with another network's subnet until the new subnet exists,
+        so a just-created network can return an empty list for a few seconds.
+        Subnets without a parent reference are kept.
+        """
 
         body = self._core.request("GET", f"{self.path}/{network_id}/subnets")
         if not isinstance(body, dict) or not isinstance(body.get("subnets"), list):
             raise MtnCloudError("Invalid subnet response: expected a 'subnets' list")
         subnets = [Subnet.model_validate(item) for item in body["subnets"]]
-        if any(subnet.network_id not in (None, network_id) for subnet in subnets):
-            raise MtnCloudError(
-                f"Subnet discovery for network {network_id} returned a subnet with a different parent network"
-            )
-        return subnets
+        return [subnet for subnet in subnets if subnet.network_id in (None, network_id)]
 
     def get_subnet(self, network_id: int, subnet_id: int) -> Subnet:
         """Return a subnet by ID, ensuring it belongs to the given network.

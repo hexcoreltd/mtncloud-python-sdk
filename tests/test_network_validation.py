@@ -7,7 +7,7 @@ import pytest
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.network import NetworkCreate
-from mtn_cloud.modern_exceptions import ForbiddenError
+from mtn_cloud.modern_exceptions import ForbiddenError, LookupNotFoundError
 from mtn_cloud.transport import HttpResponse
 
 
@@ -193,3 +193,36 @@ def test_zone_outside_the_group_fails_before_the_zone_lookup(
     with pytest.raises(ValueError, match="not associated with group"):
         client.networks.validate_create(request_model(cloud_id=9))
     assert transport.request.call_count == 1
+
+
+def subnet_page(*subnets: tuple[int, int | None]) -> HttpResponse:
+    return HttpResponse(
+        200,
+        {},
+        {
+            "subnets": [
+                {"id": sid, **({"network": {"id": parent}} if parent is not None else {})}
+                for sid, parent in subnets
+            ]
+        },
+    )
+
+
+def test_subnets_of_another_network_are_never_returned(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    # Live MTN contract (2026-11-05): just after creating network 720, its
+    # subnet listing returned subnet 4442 of network 660 for about 10 seconds.
+    transport.request.return_value = subnet_page((4442, 660))
+    assert client.networks.list_subnets(720) == []
+
+    transport.request.return_value = subnet_page((4442, 660), (4501, 720), (77, None))
+    assert [subnet.id for subnet in client.networks.list_subnets(720)] == [4501, 77]
+
+
+def test_subnet_lookup_cannot_select_another_networks_subnet(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.return_value = subnet_page((4442, 660))
+    with pytest.raises(LookupNotFoundError):
+        client.networks.get_subnet(720, 4442)
