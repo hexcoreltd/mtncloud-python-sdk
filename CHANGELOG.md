@@ -10,6 +10,10 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Optional read-only network creation preflight with `networks.validate_create`
+  and `create(validate=True)`, checking addressing and placement dependencies.
+  Mocked regression coverage is complete; live verification is pending.
+
 - Dedicated opt-in live networking contract checks and an operation inventory
   separating implemented methods from live-verified lifecycle coverage.
 

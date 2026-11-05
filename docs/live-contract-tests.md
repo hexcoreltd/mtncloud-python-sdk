@@ -51,3 +51,16 @@ uv run pytest tests/integration/test_live_networking.py \
 Both live and mutation flags are required. Missing test resource IDs fail
 before creation. Passing unit tests does not mark this lifecycle live-verified;
 run it when the MTN control plane is available and record the outcome.
+
+## Network creation preflight (pending live verification)
+
+The read-only `test_live_network_create_preflight` additionally accepts
+`MTN_CLOUD_TEST_GROUP_ID`, `MTN_CLOUD_TEST_ZONE_ID`, `MTN_CLOUD_TEST_POOL_ID`,
+and `MTN_CLOUD_TEST_NETWORK_TYPE_ID`. It checks placement for a sample
+documentation-range CIDR using GET requests only, without creating a network.
+If any ID is absent, this specific test skips; invalid supplied IDs fail.
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_networking.py -q -k preflight
+```

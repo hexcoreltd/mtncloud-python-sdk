@@ -1,5 +1,6 @@
-"""Modern service for MTN Cloud network discovery."""
+"""Modern service for MTN Cloud network discovery and management."""
 
+from ipaddress import ip_address, ip_network
 from typing import Any, List
 
 from mtn_cloud.models.network import (
@@ -13,6 +14,9 @@ from mtn_cloud.models.network import (
 )
 from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
 from mtn_cloud.services.base import Page, Service
+from mtn_cloud.services.groups import GroupsService
+from mtn_cloud.services.resource_pools import ResourcePoolsService
+from mtn_cloud.services.zones import ZonesService
 
 
 class NetworksService(Service[Network]):
@@ -56,9 +60,70 @@ class NetworksService(Service[Network]):
 
         return self._get_by_name("Network", name, zone_id=zone_id, group_id=group_id)
 
-    def create(self, request: NetworkCreate) -> Network:
-        """Create a tenant network from a typed request payload."""
+    def validate_create(self, request: NetworkCreate) -> None:
+        """Validate network addressing and placement using read-only requests.
 
+        Requires explicit OpenStack type and resource pool IDs. Local input
+        checks run before discovery. Permission and transport errors propagate;
+        successful discovery is a preflight check, not a reservation.
+        """
+
+        self._validate_create_inputs(request)
+        group = GroupsService(self._core).get(request.group_id)
+        if not group.active:
+            raise ValueError(f"Group {group.id} is inactive")
+        if request.cloud_id not in group.cloud_ids:
+            raise ValueError(f"Zone {request.cloud_id} is not associated with group {group.id}")
+        zone = ZonesService(self._core).get(request.cloud_id)
+        if not zone.is_enabled:
+            raise ValueError(f"Zone {zone.id} is disabled")
+        # The local checks ensure these optional model fields are present.
+        assert request.type_id is not None and request.resource_pool_id is not None
+        network_type = self.get_type(request.type_id)
+        if not network_type.is_openstack or not network_type.creatable:
+            raise ValueError(f"Network type {network_type.id} is not a creatable OpenStack type")
+        pools = ResourcePoolsService(self._core).list(zone_id=zone.id, group_id=group.id)
+        if not any(pool.id == request.resource_pool_id for pool in pools):
+            raise ValueError(
+                f"Resource pool {request.resource_pool_id} is not available "
+                f"for group {group.id} and zone {zone.id}"
+            )
+
+    @staticmethod
+    def _validate_create_inputs(request: NetworkCreate) -> None:
+        if not request.name.strip():
+            raise ValueError("Network name must not be empty")
+        for name in ("cloud_id", "group_id", "type_id", "resource_pool_id"):
+            value = getattr(request, name)
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"{name} must be an explicit positive integer for validation")
+        subnet = ip_network(request.cidr, strict=True) if request.cidr is not None else None
+        if request.gateway is not None:
+            gateway = ip_address(request.gateway)
+            if subnet is not None:
+                if gateway.version != subnet.version or gateway not in subnet:
+                    raise ValueError("Gateway must belong to the requested CIDR")
+                if subnet.version == 4 and subnet.prefixlen < 31:
+                    if gateway in (subnet.network_address, subnet.broadcast_address):
+                        raise ValueError("Gateway must be a usable host address")
+        for name in ("dns_primary", "dns_secondary"):
+            value = getattr(request, name)
+            if value is not None:
+                try:
+                    ip_address(value)
+                except ValueError as exc:
+                    raise ValueError(f"{name} must be an IP address") from exc
+
+    def create(self, request: NetworkCreate, *, validate: bool = False) -> Network:
+        """Create a network, optionally validating inputs and placement first.
+
+        Validation uses additional permission-scoped discovery endpoints.
+        It never creates resources and can be called separately via
+        ``validate_create``. The POST is submitted only after validation passes.
+        """
+
+        if validate:
+            self.validate_create(request)
         body = self._core.request("POST", self.path, json=request.to_api_payload())
         return self._parse_item(body)
 

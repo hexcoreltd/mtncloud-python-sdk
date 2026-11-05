@@ -175,6 +175,38 @@ able to access tenant-scoped endpoints while receiving `403 Forbidden` from
 broader catalog endpoints. The SDK surfaces these responses as typed errors;
 it does not silently broaden permissions or substitute data.
 
+### Validate network creation
+
+Use explicit placement IDs and an OpenStack network type when checking a
+network request before creation:
+
+```python
+from mtn_cloud import MtnCloudClient
+from mtn_cloud.models.network import NetworkCreate
+
+request = NetworkCreate(
+    name="app-private",
+    group_id=621,
+    cloud_id=4,
+    type_id=10,
+    resource_pool_id=214,
+    cidr="10.20.0.0/24",
+    gateway="10.20.0.1",
+)
+with MtnCloudClient() as cloud:
+    cloud.networks.validate_create(request)  # GET requests only; creates nothing
+    # To validate and then create in one call:
+    # network = cloud.networks.create(request, validate=True)
+```
+
+Replace the sample IDs with discovered tenant values. Validation checks local
+address inputs, group/zone association, zone availability, network-type
+creatability and resource-pool membership. It requires access to the relevant
+discovery endpoints; permission failures propagate. It does not reserve the
+network, check address conflicts in the provider, or guarantee creation will
+succeed. Plain `create(request)` retains its existing behavior. This preflight
+has mocked regression coverage; live validation is pending service recovery.
+
 ## Provision an instance safely
 
 The high-level `provision` workflow resolves the group, zone, instance type,

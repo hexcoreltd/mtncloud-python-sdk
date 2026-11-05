@@ -250,12 +250,16 @@ Implemented in the current development line:
 - Typed router interface discovery and subnet-based interface lookup
 - Router lifecycle recovery IDs, preflight waiter validation and idempotent
   deletion (implemented with mocked regression coverage; live verification pending)
+- Read-only network creation preflight covering addressing and group, zone,
+  type and resource-pool dependencies; optional `create(validate=True)`
+  integration (mocked tests pass; live validation pending)
 
 Prepared for the next healthy live environment:
 
 - Guarded router create/readiness/delete lifecycle test with cleanup using the
   submitted ID, including follow-up read failures. This test requires explicitly
   configured test resource IDs and a dedicated unattached subnet.
+- Read-only network preflight test with explicitly configured test placement IDs.
 
 Still to implement and verify:
 
@@ -268,7 +272,7 @@ Still to implement and verify:
   current MTN Cloud API contract
 - Router interface attach/detach and route management (mutation contract pending)
 - Floating/public IP allocation and association
-- Network validation and dependency graph
+- Broader network topology/dependency graph and provider-side address-conflict checks
 - Load balancers where the API contract is available
 - VPN and private connectivity discovery where enabled for the tenant
 

@@ -57,6 +57,14 @@ field is returned in a router response.
 
 ## Repeatable read-only verification
 
+Network creation preflight is also implemented offline:
+`networks.validate_create(request)` validates CIDR/gateway/DNS inputs before
+discovery, then checks group/zone association, zone availability, creatable
+OpenStack network type and scoped pool membership. `create(validate=True)`
+performs the same checks before POST. This is opt-in for compatibility and
+does not reserve resources or check provider-side address conflicts. It has
+mocked regression tests; its live test remains pending service recovery.
+
 ```bash
 MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
   tests/integration/test_live_networking.py -q -x --tb=short

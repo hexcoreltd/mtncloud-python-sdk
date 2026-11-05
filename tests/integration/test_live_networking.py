@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 from mtn_cloud import ClientSettings, MtnCloudClient
+from mtn_cloud.models.network import NetworkCreate
 from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.modern_exceptions import MtnCloudError
 
@@ -147,3 +148,32 @@ def test_live_router_create_wait_delete(networking_client: MtnCloudClient) -> No
         if router_id is not None:
             networking_client.routers.delete(router_id)
             networking_client.routers.wait_until_deleted(router_id, timeout=600)
+
+
+def test_live_network_create_preflight(networking_client: MtnCloudClient) -> None:
+    """Validate explicitly selected placement with GET requests only."""
+    variables = {
+        "group_id": "MTN_CLOUD_TEST_GROUP_ID",
+        "cloud_id": "MTN_CLOUD_TEST_ZONE_ID",
+        "resource_pool_id": "MTN_CLOUD_TEST_POOL_ID",
+        "type_id": "MTN_CLOUD_TEST_NETWORK_TYPE_ID",
+    }
+    ids: dict[str, int] = {}
+    for field, variable in variables.items():
+        raw = os.getenv(variable)
+        if raw is None:
+            pytest.skip(f"Set {variable} to exercise network placement validation")
+        if not raw.isascii() or not raw.isdigit() or int(raw) <= 0:
+            pytest.fail(f"{variable} must be a positive resource ID")
+        ids[field] = int(raw)
+    networking_client.networks.validate_create(
+        NetworkCreate(
+            name="sdk-preflight-only",
+            group_id=ids["group_id"],
+            cloud_id=ids["cloud_id"],
+            resource_pool_id=ids["resource_pool_id"],
+            type_id=ids["type_id"],
+            cidr="192.0.2.0/24",
+            gateway="192.0.2.1",
+        )
+    )
