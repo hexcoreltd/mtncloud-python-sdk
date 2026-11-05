@@ -18,6 +18,7 @@ import pytest
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.snapshot import SnapshotCreate
+from mtn_cloud.modern_exceptions import ValidationError
 
 
 def _enabled(name: str) -> bool:
@@ -77,9 +78,16 @@ def test_live_snapshot_process_restore_delete(mutation_client: MtnCloudClient) -
         instance_id = instance.id
         client.instances.wait_until_running(instance_id, timeout=1800, poll_interval=15)
 
-        submission = client.instances.create_snapshot(
-            instance_id, SnapshotCreate(name=snapshot_name)
-        )
+        try:
+            submission = client.instances.create_snapshot(
+                instance_id, SnapshotCreate(name=snapshot_name)
+            )
+        except ValidationError as exc:
+            # MTN rejects snapshots per instance type (observed 2026-11-05 for
+            # MTN-U24.04LTS) and exposes no capability flag to check first.
+            if "does not support snapshots" in exc.message:
+                pytest.skip(f"Instance type does not support snapshots: {options['type_code']}")
+            raise
         assert submission.instance_id == instance_id
         for process_id in submission.process_ids:
             process = client.processes.wait_for_status(

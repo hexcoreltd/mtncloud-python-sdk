@@ -331,8 +331,11 @@ Progress: **read-only discovery and selection implemented; lifecycle pending**
   detail/deletion contracts. Submission process IDs replace the previous
   assumed snapshot return. Scoped lookup and restore/deletion membership checks,
   explicit acknowledgements and compatible metadata models have mocked
-  regression coverage. GET-only live checks are prepared; MTN lifecycle and
-  verified snapshot completion policies remain pending. See [snapshot guide](snapshots.md).
+  regression coverage. Live (2026-11-05): instance snapshot listing passes,
+  and the creation endpoint answers, but MTN refuses snapshots for the
+  `MTN-U24.04LTS` instance type and exposes no capability flag. The guarded
+  lifecycle test is ready for a snapshot-capable type; restore, deletion and
+  completion policies remain unverified. See [snapshot guide](snapshots.md).
 - Process detail/history and caller-configured status polling now support
   inspecting snapshot submission IDs, with instance/event parent checks and
   no implicit status mapping. Mocked regressions and GET-only live checks are

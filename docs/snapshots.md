@@ -73,6 +73,19 @@ MTN status semantics and verified snapshot-completion policies remain pending.
 and `for_export` flags. Explicit false values are preserved. Provider support
 for those options still requires MTN verification.
 
+## Provider support
+
+Live runs on 2026-11-05 showed that MTN Cloud decides snapshot support per
+instance type. `create_snapshot` on an `MTN-U24.04LTS` instance returned HTTP
+400 with "Instance type does not support snapshots", raised as the SDK's
+`ValidationError`. Neither instance types nor layouts expose a snapshot
+capability field to tenant credentials, so support cannot be checked before
+submitting. The guarded lifecycle test in
+`tests/integration/test_live_snapshot_lifecycle.py` skips with that reason
+when the selected type refuses snapshots; set
+`MTN_CLOUD_TEST_INSTANCE_TYPE_CODE` to a snapshot-capable type to exercise
+creation, process tracking, restore and deletion.
+
 ## Restore and deletion
 
 `instances.revert_snapshot(instance_id, snapshot_id)` checks the instance
