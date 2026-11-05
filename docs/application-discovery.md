@@ -50,9 +50,11 @@ mutations or inferred database classification are introduced.
 The shared `list_all()` adapter rejects unexpected nonempty-page offsets and
 follows an explicitly reported page-size cap when no total is available. It
 returns each integer resource ID once: repeated items on later pages are
-dropped, and a page that adds no new IDs ends pagination. `meta.total` is a
-hint, because MTN Cloud has been observed to over-report it and repeat items
-at later offsets. This applies to every modern service using that adapter.
+dropped. Pages are followed until the offset reaches `meta.total`, so a
+repeated page cannot hide later items; MTN Cloud has been observed to
+over-report the total and repeat items at later offsets. Without a total, a
+page that adds no new IDs ends pagination. This applies to every modern
+service using that adapter.
 
 Collection traversal is not a snapshot. Concurrent resource changes can shift
 items between pages, and a provider that ignores `offset` yields only its first

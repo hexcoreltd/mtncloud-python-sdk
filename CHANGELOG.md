@@ -135,7 +135,8 @@ would normally require a major release in a mature stable SDK.
 
 - Shared `list_all()` rejects unexpected nonempty-page offsets, respects
   reported page-size caps and rejects non-integer page sizes. It returns each
-  resource ID once: repeated IDs are dropped and a page with no new IDs ends
+  resource ID once: repeated IDs are dropped, pages are followed until the
+  offset reaches `meta.total`, and without a total a page with no new IDs ends
   pagination (see Fixed).
 - Application model representations omit config and rendered validation errors
   hide inputs. Raw serialization and structured errors remain sensitive.

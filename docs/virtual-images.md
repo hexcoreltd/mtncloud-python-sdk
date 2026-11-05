@@ -24,9 +24,9 @@ with MtnCloudClient() as cloud:
 
 `list()` returns one page. `list_all()` follows offsets, returns each image
 ID once and fails on offset mismatches. MTN Cloud has been observed to report a
-`total` larger than the images it returns; `list_all()` stops when a page adds
-no new IDs. Name lookup searches all pages and requires an
-exact, unique name: missing matches raise `LookupNotFoundError`; duplicates
+`total` larger than the images it returns and repeating an image at a later
+offset; `list_all()` drops the repeat and stops when the offset reaches
+`total`. Name lookup searches all pages and requires an exact, unique name: missing matches raise `LookupNotFoundError`; duplicates
 raise `AmbiguousLookupError`. Format and origin filters are retained on every
 page. Permission and later-page errors propagate without returning partial
 results or broadening scope. Collections are not a transactional snapshot.

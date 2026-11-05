@@ -484,8 +484,9 @@ this CLI extension remains pending.
 
 Modern `list_all()` calls return each resource ID once and fail on unexpected
 pagination offsets. MTN Cloud can report a `meta.total` larger than the items
-it returns and repeat items at later offsets, so repeated IDs are dropped and a
-page that adds no new IDs ends pagination. Traversal is not a snapshot, and
+it returns and repeat items at later offsets, so repeated IDs are dropped and
+pages are followed until the offset reaches the total. Without a total, a page
+that adds no new IDs ends pagination. Traversal is not a snapshot, and
 concurrent changes can shift items between pages.
 
 ## Block-storage discovery and selection
