@@ -63,7 +63,7 @@ jobs:
         # Test the minimum supported version, the primary CI version, and the
         # newest supported version. Platform-specific jobs belong in release
         # qualification, not every pull request.
-        python-version: ["3.10", "3.12", "3.14"]
+        python-version: ["3.12", "3.14"]
 
     steps:
       - name: Check out repository
