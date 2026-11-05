@@ -39,3 +39,7 @@ class ApplicationsService(Service[Application]):
 
     def get(self, application_id: int) -> Application:
         return self._get(application_id)
+
+    def get_by_name(self, name: str, *, group_id: int | None = None) -> Application:
+        """Find an exact, unique application name across all collection pages."""
+        return self._get_by_name("Application", name, group_id=group_id)

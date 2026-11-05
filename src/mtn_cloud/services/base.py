@@ -73,22 +73,41 @@ class Service(Generic[T]):
         )
 
     def list_all(self, *, page_size: int = 100, **filters: Any) -> list[T]:
-        """Return every item by following pagination through the service's ``list_page``."""
-        if page_size < 1:
-            raise ValueError("page_size must be at least 1")
+        """Follow collection pages, failing on detected overlap or offset mismatches."""
+        if type(page_size) is not int or page_size < 1:
+            raise ValueError("page_size must be a positive integer")
         list_page = cast(Callable[..., Page[T]], getattr(self, "list_page"))  # noqa: B009
         collected: list[T] = []
+        seen_ids: set[int] = set()
         offset = 0
         while True:
             page = list_page(limit=page_size, offset=offset, **filters)
             if not page.items:
                 break
+            if page.offset != offset:
+                raise MtnCloudError(
+                    "Collection pagination returned an unexpected offset",
+                    method="GET",
+                    path=self.path,
+                )
+            page_ids: set[int] = set()
+            for item in page.items:
+                item_id = getattr(item, "id", None)
+                if type(item_id) is int:
+                    if item_id in seen_ids:
+                        raise MtnCloudError(
+                            "Collection pagination repeated resource IDs",
+                            method="GET",
+                            path=self.path,
+                        )
+                    page_ids.add(item_id)
+            seen_ids.update(page_ids)
             collected.extend(page.items)
             offset += len(page.items)
             if page.total is not None:
                 if len(collected) >= page.total:
                     break
-            elif len(page.items) < page_size:
+            elif len(page.items) < min(page_size, page.limit or page_size):
                 break
         return collected
 

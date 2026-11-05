@@ -10,6 +10,10 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Exact-name application SDK lookup and read-only `apps` CLI list/describe and
+  opt-in inventory, with group scope and filtered output. Prepared GET-only
+  application contract tests; live validation remains pending.
+
 - Read-only backup CLI configuration list/describe, job listing, execution
   history and opt-in inventory, with filtered output and sanitized normal
   errors. Added SDK exact-name backup lookup. Mocked regression coverage is
@@ -85,6 +89,12 @@ would normally require a major release in a mature stable SDK.
 - Modern read-only provisioned-application discovery at `/apps`.
 
 ### Changed
+
+- Shared `list_all()` now rejects detected repeated resource IDs across pages
+  and unexpected nonempty-page offsets instead of returning duplicate data;
+  respects reported page-size caps and rejects non-integer page sizes.
+- Application model representations omit config and rendered validation errors
+  hide inputs. Raw serialization and structured errors remain sensitive.
 
 - Backup pagination rejects invalid limits and offsets before requests.
 - Shared page adapters use requested offset/limit as metadata fallbacks and

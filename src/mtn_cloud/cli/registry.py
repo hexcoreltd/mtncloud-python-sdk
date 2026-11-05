@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from mtn_cloud import MtnCloudClient
 from mtn_cloud.cli import output
+from mtn_cloud.models.app import Application
 from mtn_cloud.models.backup import Backup
 from mtn_cloud.models.storage_bucket import StorageBucket
 from mtn_cloud.models.volume import StorageVolume
@@ -125,6 +126,25 @@ def _serialize_backup(backup: Backup) -> dict[str, Any]:
             "last_success",
             "last_run",
             "next_fire",
+            "date_created",
+            "last_updated",
+        },
+    )
+
+
+def _serialize_application(application: Application) -> dict[str, Any]:
+    """Keep operational fields without configuration or nested resource metadata."""
+    return application.model_dump(
+        mode="json",
+        exclude_unset=True,
+        include={
+            "id",
+            "name",
+            "code",
+            "status",
+            "app_type",
+            "category",
+            "environment",
             "date_created",
             "last_updated",
         },
@@ -247,6 +267,21 @@ REGISTRY: dict[str, ResourceSpec] = {
         name_filter="phrase",
         inventory_default=False,
         serializer=_serialize_backup,
+        redact_errors=True,
+    ),
+    "apps": ResourceSpec(
+        name="apps",
+        service=lambda client: client.apps,
+        columns=(
+            Column("ID", lambda m: m.id),
+            Column("NAME", lambda m: m.name),
+            Column("STATUS", lambda m: m.status),
+            Column("TYPE", lambda m: m.app_type),
+            Column("ENVIRONMENT", lambda m: m.environment),
+        ),
+        supports_zone=False,
+        inventory_default=False,
+        serializer=_serialize_application,
         redact_errors=True,
     ),
 }

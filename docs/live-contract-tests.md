@@ -122,3 +122,16 @@ execution-history checks. These use the same live guard and perform only GET
 requests. No backup execution, deletion or restore command is invoked. CLI
 live verification remains deferred; unavailable tenant data skips the affected
 checks without claiming item or lifecycle coverage.
+
+## Applications (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_applications.py -q -x --tb=short
+```
+
+Checks use the shared authenticated fixture and existing applications only.
+Set `MTN_CLOUD_TEST_APP_NAME` to exercise unique-name lookup. No catalog order
+or database mutation occurs. Pagination/item checks skip when insufficient
+tenant data exists. Application inventory is not evidence of managed-database
+lifecycle coverage; see the [application guide](application-discovery.md).

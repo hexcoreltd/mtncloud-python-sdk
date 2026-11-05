@@ -28,6 +28,12 @@ backup ID separately from returned item metadata. Provider metadata, result
 configuration and raw error messages are excluded. Mutations remain outside
 this CLI increment and live verification remains pending.
 
+Application extension: `apps` list/describe and opt-in inventory support group
+scope and exact-name lookup, excluding config and nested resource metadata.
+Zone scope is rejected; defaults remain unchanged. This covers application
+discovery only. Shared pagination now fails on detected page overlap/offset
+mismatches. Live validation and managed-database lifecycle coverage remain pending.
+
 ## 1. Goal
 
 Ship a read-only `mtncloud` command-line interface, inside this repository and

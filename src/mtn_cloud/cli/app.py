@@ -179,7 +179,13 @@ def build_app(
         specs = _select_specs(only)
         _validate_scopes(specs, group, zone)
         client = cli.client()
-        scope = resolve_scope(client, group=group, zone=zone)
+        try:
+            scope = resolve_scope(client, group=group, zone=zone)
+        except MtnCloudError as exc:
+            redactor = next((spec for spec in specs if spec.redact_errors), None)
+            if redactor is not None:
+                raise redactor.error_for_output(exc) from exc
+            raise
         sections = inventory_module.collect_sections(client, scope, specs)
         document, code = inventory_module.build_inventory(
             client,
@@ -255,11 +261,11 @@ def _resource_app(spec: ResourceSpec, state: CliState) -> typer.Typer:
         apply_format(cli, output_format)
         _validate_scopes([spec], group, zone)
         client = cli.client()
-        scope = resolve_scope(client, group=group, zone=zone)
-        filters: dict[str, Any] = dict(scope_filters(scope))
-        if name is not None:
-            filters[spec.name_filter] = name
         try:
+            scope = resolve_scope(client, group=group, zone=zone)
+            filters: dict[str, Any] = dict(scope_filters(scope))
+            if name is not None:
+                filters[spec.name_filter] = name
             models = spec.service(client).list_all(**filters)
         except MtnCloudError as exc:
             if spec.redact_errors:

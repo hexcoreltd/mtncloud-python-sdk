@@ -1126,14 +1126,13 @@ def test_list_all_stops_on_empty_page() -> None:
     assert transport.request.call_count == 1
 
 
-def test_list_all_stops_when_api_ignores_offset() -> None:
+def test_list_all_rejects_provider_ignoring_offset() -> None:
     transport = Mock()
     transport.request.return_value = _instances_response([1, 2], offset=0, total=4)
     client = MtnCloudClient(token="secret", transport=transport)
 
-    instances = client.instances.list_all(page_size=2)
-
-    assert len(instances) == 4
+    with pytest.raises(MtnCloudError, match="unexpected offset"):
+        client.instances.list_all(page_size=2)
     assert transport.request.call_count == 2
 
 

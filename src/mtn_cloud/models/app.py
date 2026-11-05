@@ -2,13 +2,15 @@
 
 from typing import Any
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from mtn_cloud.models.base import Resource
 
 
 class Application(Resource):
     """A provisioned MTN Cloud application or catalog deployment."""
+
+    model_config = ConfigDict(hide_input_in_errors=True)
 
     code: str | None = None
     description: str | None = None
@@ -19,7 +21,7 @@ class Application(Resource):
     group: dict[str, Any] | None = None
     cloud: dict[str, Any] | None = None
     instances: list[dict[str, Any]] = Field(default_factory=list)
-    config: dict[str, Any] | None = None
+    config: dict[str, Any] | None = Field(default=None, repr=False)
 
     @property
     def is_running(self) -> bool:

@@ -335,6 +335,9 @@ mtncloud backups describe nightly
 mtncloud backups jobs
 mtncloud backups results 42
 mtncloud inventory --only backups -o json
+mtncloud apps list --group production
+mtncloud apps describe ledger --group production
+mtncloud inventory --only apps --group production -o json
 mtncloud version
 ```
 
@@ -342,6 +345,7 @@ mtncloud version
 - `mtncloud volumes list [--zone] [--name]`
 - `mtncloud storage-buckets list [--name]`
 - `mtncloud backups list [--name]`
+- `mtncloud apps list [--group] [--name]`
 - `mtncloud backups jobs [-o json|table]`
 - `mtncloud backups results BACKUP_ID [-o json|table]`
 - `mtncloud <resource> describe <id-or-name> [--group] [--zone]`. An argument
@@ -393,6 +397,13 @@ types, operation metadata and exit codes; debug tracebacks remain sensitive.
 See the [backup guide](docs/backup-recovery.md) for the output contract and
 verification limits.
 
+Applications support group-scoped list/name lookup and opt-in inventory via
+`--only apps`. Zone scope is rejected. Numeric-ID describes use direct reads
+and ignore group scope. CLI output excludes application configuration,
+description and nested resource metadata. This is application discovery;
+managed-database provisioning and lifecycle workflows remain pending. See
+the [application guide](docs/application-discovery.md).
+
 Global options are `-o/--output json|table`, `--base-url`, `--timeout` and
 `--debug`. `-o` may go before the command or after it, and the value after the
 command wins. Running `mtncloud` with no arguments, or `mtncloud <resource>`
@@ -442,6 +453,11 @@ resolved fails the whole command.
 
 Closing a pipe early, for example `mtncloud instances list | head`, exits 0
 quietly.
+
+Modern `list_all()` calls now fail on detected repeated resource IDs across
+pages or unexpected pagination offsets. Traversal is not a snapshot, and
+concurrent changes can require a retry. No duplicate or partial result is
+returned after those errors.
 
 ## Block-storage discovery and selection
 

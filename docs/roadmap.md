@@ -374,6 +374,13 @@ require explicit confirmation and provide a dry-run representation.
 Progress: **application discovery implemented; managed-database workflow pending**
 
 - Provisioned application discovery at `/apps`
+- Exact-name application lookup across all pages with optional group scope.
+- Read-only application CLI list/describe and opt-in inventory, with filtered
+  operational output and sanitized normal errors. Live verification remains
+  pending. This does not complete managed-database provisioning or management.
+- Shared pagination rejects detected repeated IDs/offset mismatches and handles
+  reported page-size caps; mocked regressions pass. GET-only application live
+  checks are prepared, including an optional configured-name lookup.
 
 - Managed database application discovery
 - Catalog-based provisioning requests
