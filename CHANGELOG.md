@@ -10,6 +10,12 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Composite GitHub Action for read-only inventory and dry-run planning, with
+  locked CLI dependencies, SHA-pinned setup actions, credential masking,
+  a GET-only transport guard, projected JSON results and job summaries.
+  Added an opt-in manual workflow and mocked adapter coverage. Hosted workflow
+  execution and live MTN verification remain pending.
+
 - Read-only `mtncloud plan` with versioned JSON/table output, placement
   resolution through the existing SDK dry run, input validation, sanitized
   errors and a guarded live check. No creation or apply path is exposed.

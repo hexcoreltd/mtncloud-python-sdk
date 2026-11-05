@@ -1,0 +1,64 @@
+name: MTN Cloud read-only
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Read-only operation
+        type: choice
+        options: [inventory, plan]
+        default: inventory
+      only:
+        description: Comma-separated inventory resources (leave empty for defaults)
+        type: string
+        default: ""
+      name:
+        description: Proposed instance name (used only for plan)
+        type: string
+        default: ci-plan-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mtncloud-read-only-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    name: Inventory or plan
+    if: vars.MTN_CLOUD_LIVE_TESTS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: live-read-only
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Run MTN Cloud discovery
+        id: mtncloud
+        uses: ./.github/actions/mtncloud
+        with:
+          token: ${{ secrets.MTN_CLOUD_TOKEN || secrets.MTN_CLOUD_API_KEY }}
+          command: ${{ inputs.command }}
+          only: ${{ inputs.only }}
+          group: ${{ vars.MTN_CLOUD_GROUP }}
+          zone: ${{ vars.MTN_CLOUD_ZONE }}
+          name: ${{ inputs.command == 'plan' && inputs.name || '' }}
+          type-code: ${{ inputs.command == 'plan' && vars.MTN_CLOUD_TYPE_CODE || '' }}
+          service-plan: ${{ inputs.command == 'plan' && vars.MTN_CLOUD_SERVICE_PLAN || '' }}
+          resource-pool: ${{ inputs.command == 'plan' && vars.MTN_CLOUD_RESOURCE_POOL || '' }}
+          layout: ${{ inputs.command == 'plan' && vars.MTN_CLOUD_LAYOUT || '' }}
+          network-id: ${{ inputs.command == 'plan' && vars.MTN_CLOUD_NETWORK_ID || '' }}
+          root-volume-size-gb: ${{ inputs.command == 'plan' && vars.MTN_CLOUD_ROOT_VOLUME_SIZE_GB || '' }}
+
+      - name: Retain discovery result
+        if: always() && steps.mtncloud.outputs.result-path != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mtncloud-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.mtncloud.outputs.result-path }}
+          if-no-files-found: error
+          retention-days: 7

@@ -491,20 +491,29 @@ mutation services.
 - JSON output for automation
 - Human-readable tables for operators
 - `plan`, `apply`, `wait`, `destroy`, and `inventory` commands
-- GitHub Action built on the CLI
+- GitHub Action built on the CLI: read-only inventory/plan implemented with
+  structured inputs, GET-only transport enforcement, projected JSON artifacts
+  and job summaries. A manual workflow is prepared; mocked adapter coverage
+  passes. Hosted workflow execution and MTN live verification remain pending.
+  See [action guide](github-action.md).
 - Terraform/OpenTofu provider
 - Reusable CI/CD examples
 - Ansible or configuration-management integrations where valuable
 
 ## 7. GitHub Actions strategy
 
-The project should provide an official action after the CLI has a stable
-command and exit-code contract. The action should not duplicate SDK logic.
+The first action is implemented for inventory and dry-run planning through
+the CLI. It has structured inputs, isolated locked CLI dependencies, pinned
+setup actions, credential masking, a GET-only transport guard, projected JSON
+results and sanitized job summaries. Hosted and live validation remain pending.
+The manual `.github/workflows/mtncloud-read-only.yml` workflow uses protected
+environment secrets and the `MTN_CLOUD_LIVE_TESTS` opt-in variable. See the
+[action guide](github-action.md) for current inputs and result contracts.
 
-Proposed action usage:
+Local action usage after checking out this repository:
 
 ```yaml
-name: Deploy MTN Cloud
+name: MTN Cloud discovery
 
 on:
   workflow_dispatch:
@@ -513,39 +522,28 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  inventory:
     runs-on: ubuntu-latest
-    environment: production
+    environment: live-read-only
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Plan MTN Cloud changes
-        uses: hexcoreltd/mtncloud-python-sdk/.github/actions/mtncloud@v1
+      - name: Discover MTN Cloud resources
+        uses: ./.github/actions/mtncloud
         with:
-          command: plan
-          config: infrastructure/mtncloud.yaml
-          api-key: ${{ secrets.MTN_CLOUD_API_KEY }}
-
-      - name: Apply MTN Cloud changes
-        uses: hexcoreltd/mtncloud-python-sdk/.github/actions/mtncloud@v1
-        with:
-          command: apply
-          config: infrastructure/mtncloud.yaml
-          api-key: ${{ secrets.MTN_CLOUD_API_KEY }}
-          confirm: "true"
+          command: inventory
+          only: instances,networks,routers
+          token: ${{ secrets.MTN_CLOUD_TOKEN }}
 ```
 
-Required action properties should include:
+Future extensions, after their SDK and live contracts are established:
 
-- `command`
 - `config` or a structured input source
-- `api-key` or a supported credential-provider mode
-- `base-url`
-- `environment`
-- `timeout`
+- Additional credential-provider modes
 - `wait`
 - `confirm` for mutations
-- `dry-run`
+- Apply/destroy commands and explicit mutation previews
+- Offline/bootstrap support for restricted self-hosted runners
 
 Security requirements:
 
@@ -560,8 +558,7 @@ Security requirements:
 - Pin action dependencies and document release tags.
 - Support self-hosted runners without assuming public network access.
 
-The first action should support read-only inventory and dry-run provisioning
-before mutation commands. This gives teams a safe adoption path.
+Mutation commands remain pending and are not accepted by the current action.
 
 ## 8. Compliance-enablement features
 
@@ -636,7 +633,7 @@ A service is ready for a public modern SDK release when it has:
    ~~Read-only inventory and dry-run output (`plan`)~~ are implemented.
    CLI plan live verification and standalone floating IPs remain pending.
 6. Implement the first GitHub Action for authenticated inventory and dry-run
-   provisioning.
+   provisioning. Implemented; hosted workflow and live MTN validation pending.
 7. Add migration-oriented examples and evidence export.
 8. Engage MTN Cloud users and maintainers to verify contracts and document
    tenant-specific permissions.

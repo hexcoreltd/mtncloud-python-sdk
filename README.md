@@ -543,6 +543,15 @@ See [the configuration example](examples/storage_bucket_config.py). S3 object
 transfers, access-key management, and full live lifecycle verification remain
 pending; this service manages control-plane configuration only.
 
+## GitHub Action
+
+Use `.github/actions/mtncloud` for read-only inventory and instance planning
+from GitHub Actions. The manual **MTN Cloud read-only** workflow uses the
+`live-read-only` environment and the existing `MTN_CLOUD_LIVE_TESTS` opt-in
+variable. It writes projected JSON results and a job summary. See the
+[action guide](docs/github-action.md) for secrets, inputs, exit codes and
+artifact handling. Hosted workflow and live MTN verification remain pending.
+
 ## Control-plane availability monitor
 
 Run the standalone monitor from an external host to observe console HTTP

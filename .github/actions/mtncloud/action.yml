@@ -1,0 +1,107 @@
+name: MTN Cloud inventory and planning
+description: Read-only MTN Cloud discovery and instance planning using the Python SDK CLI
+author: Hexcore Ltd
+branding:
+  icon: cloud
+  color: yellow
+
+inputs:
+  token:
+    description: MTN Cloud API token, supplied from a GitHub secret
+    required: true
+  command:
+    description: inventory or plan
+    default: inventory
+  base-url:
+    description: HTTPS control-plane origin
+    default: https://console.cloud.mtn.ng
+  timeout:
+    description: Per-request timeout in seconds (greater than zero, at most 300)
+    default: "30"
+  only:
+    description: Inventory resources, separated by commas (inventory only)
+  group:
+    description: Group name or positive ID
+  zone:
+    description: Zone name or positive ID
+  name:
+    description: Instance name (required for plan)
+  type-code:
+    description: Instance type code (required for plan)
+  service-plan:
+    description: Service plan name, code or ID (required for plan)
+  resource-pool:
+    description: Resource pool name, code or ID (plan only)
+  layout:
+    description: Layout name or ID (plan only)
+  network-id:
+    description: Positive private network ID (plan only)
+  root-volume-size-gb:
+    description: Requested root size in GiB (plan only, CLI default is 10)
+
+outputs:
+  result-path:
+    description: Absolute path to the mtncloud.action/v1 JSON result file
+    value: ${{ steps.run.outputs.result-path }}
+  exit-code:
+    description: Original CLI exit code (nonzero fails the action, including partial inventory)
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs and mask credentials
+      id: prepare
+      shell: bash
+      env:
+        MTNCLOUD_ACTION_ROOT: ${{ github.action_path }}/../../..
+        MTNCLOUD_ACTION_TOKEN: ${{ inputs.token }}
+        MTNCLOUD_ACTION_COMMAND: ${{ inputs.command }}
+        MTNCLOUD_ACTION_BASE_URL: ${{ inputs.base-url }}
+        MTNCLOUD_ACTION_TIMEOUT: ${{ inputs.timeout }}
+        MTNCLOUD_ACTION_ONLY: ${{ inputs.only }}
+        MTNCLOUD_ACTION_GROUP: ${{ inputs.group }}
+        MTNCLOUD_ACTION_ZONE: ${{ inputs.zone }}
+        MTNCLOUD_ACTION_NAME: ${{ inputs.name }}
+        MTNCLOUD_ACTION_TYPE_CODE: ${{ inputs.type-code }}
+        MTNCLOUD_ACTION_SERVICE_PLAN: ${{ inputs.service-plan }}
+        MTNCLOUD_ACTION_RESOURCE_POOL: ${{ inputs.resource-pool }}
+        MTNCLOUD_ACTION_LAYOUT: ${{ inputs.layout }}
+        MTNCLOUD_ACTION_NETWORK_ID: ${{ inputs.network-id }}
+        MTNCLOUD_ACTION_ROOT_VOLUME_SIZE_GB: ${{ inputs.root-volume-size-gb }}
+      run: python3 "$MTNCLOUD_ACTION_ROOT/tools/github_action.py" prepare
+
+    - name: Set up Python
+      id: python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+      with:
+        python-version: "3.12"
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@1e862dfacbd1d6d858c55d9b792c756523627244 # v7.1.4
+      with:
+        version: "0.9.26"
+        enable-cache: false
+
+    - name: Install the action revision with locked CLI dependencies
+      shell: bash
+      env:
+        MTNCLOUD_ACTION_ROOT: ${{ github.action_path }}/../../..
+        MTNCLOUD_ACTION_PYTHON: ${{ steps.python.outputs.python-path }}
+        UV_PROJECT_ENVIRONMENT: ${{ steps.prepare.outputs.work-dir }}/venv
+        UV_NO_CONFIG: "true"
+        UV_PYTHON_DOWNLOADS: never
+      run: >-
+        uv sync --locked --no-dev --extra cli --project "$MTNCLOUD_ACTION_ROOT"
+        --python "$MTNCLOUD_ACTION_PYTHON"
+
+    - name: Run read-only command and write result
+      id: run
+      shell: bash
+      env:
+        MTNCLOUD_ACTION_ROOT: ${{ github.action_path }}/../../..
+        MTNCLOUD_ACTION_WORK_DIR: ${{ steps.prepare.outputs.work-dir }}
+        MTNCLOUD_ACTION_TOKEN: ${{ inputs.token }}
+      run: >-
+        "$MTNCLOUD_ACTION_WORK_DIR/venv/bin/python" -I
+        "$MTNCLOUD_ACTION_ROOT/tools/github_action.py" run
