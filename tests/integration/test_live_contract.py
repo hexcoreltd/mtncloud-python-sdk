@@ -141,18 +141,22 @@ def test_live_create_wait_delete(live_client: MtnCloudClient) -> None:
         )
         assert instance.is_running
     finally:
-        if instance is not None:
-            live_client.instances.delete(instance.id, force=True)
-            live_client.instances.wait_until_deleted(
-                instance.id,
-                timeout=600,
-                poll_interval=15,
-            )
-        else:
-            matches = [i for i in live_client.instances.list(name=name) if i.name == name]
-            for orphan in matches:
-                live_client.instances.delete(orphan.id, force=True)
-                live_client.instances.wait_until_deleted(orphan.id, timeout=600, poll_interval=15)
+        # The name is unique per run, so every match belongs to this test. Each
+        # deletion is attempted even if another fails; the first error is re-raised.
+        failures: list[BaseException] = []
+        instance_ids = {instance.id} if instance is not None else set()
+        try:
+            instance_ids |= {i.id for i in live_client.instances.list(name=name) if i.name == name}
+        except Exception as exc:
+            failures.append(exc)
+        for instance_id in instance_ids:
+            try:
+                live_client.instances.delete(instance_id, force=True)
+                live_client.instances.wait_until_deleted(instance_id, timeout=600, poll_interval=15)
+            except Exception as exc:
+                failures.append(exc)
+        if failures:
+            raise failures[0]
 
 
 def test_live_cli_inventory(

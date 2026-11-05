@@ -263,7 +263,7 @@ Implemented in the current development line:
   deletion (implemented with mocked regression coverage; live verification pending)
 - Read-only network creation preflight covering addressing and group, zone,
   type and resource-pool dependencies; optional `create(validate=True)`
-  integration (mocked tests pass; live validation pending)
+  integration (verified live 2026-11-05)
 
 Verified live with guarded mutation tests (2026-11-05):
 

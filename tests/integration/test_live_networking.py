@@ -226,6 +226,7 @@ def test_live_network_and_router_lifecycle() -> None:
     cidr = os.getenv("MTN_CLOUD_TEST_NETWORK_CIDR", "10.254.254.0/24")
     gateway = cidr.rsplit(".", 1)[0] + ".1"
     name = f"sdk-network-contract-{uuid4().hex[:12]}"
+    router_name = f"sdk-router-contract-{uuid4().hex[:12]}"
 
     with MtnCloudClient(settings=ClientSettings(timeout=60, max_retries=2)) as client:
         network_id: int | None = None
@@ -246,21 +247,28 @@ def test_live_network_and_router_lifecycle() -> None:
             network_id = network.id
             assert network.name == name
 
-            subnets = []
+            # Only a subnet that names this network as its parent and carries the
+            # requested CIDR is safe to attach; MTN can briefly return another
+            # network's subnet for a new network.
+            own: list[Any] = []
             deadline = time.monotonic() + 300
-            while not subnets and time.monotonic() < deadline:
-                subnets = client.networks.list_subnets(network_id)
-                if not subnets:
+            while not own and time.monotonic() < deadline:
+                own = [
+                    subnet
+                    for subnet in client.networks.list_subnets(network_id)
+                    if subnet.network_id == network_id and subnet.cidr == cidr
+                ]
+                if not own:
                     time.sleep(10)
-            assert subnets, "Network creation produced no subnet within 300 seconds"
+            assert len(own) == 1, "Network creation produced no matching subnet within 300 seconds"
 
             router = client.routers.create(
                 RouterCreate(
-                    name=f"sdk-router-contract-{uuid4().hex[:12]}",
+                    name=router_name,
                     group_id=ids["group_id"],
                     cloud_id=ids["cloud_id"],
                     resource_pool_id=ids["resource_pool_id"],
-                    internal_subnet_ids=[subnets[0].id],
+                    internal_subnet_ids=[own[0].id],
                 )
             )
             router_id = router.id
@@ -279,12 +287,33 @@ def test_live_network_and_router_lifecycle() -> None:
                     router_id = candidate
             raise
         finally:
-            if router_id is not None:
-                client.routers.delete(router_id)
-                client.routers.wait_until_deleted(router_id, timeout=600)
-            if network_id is None:
-                matches = [n for n in client.networks.list(name=name) if n.name == name]
-                network_id = matches[0].id if len(matches) == 1 else None
-            if network_id is not None:
-                client.networks.delete(network_id)
-                _wait_until_absent(lambda: client.networks.get(network_id))
+            # Each step runs even if an earlier one fails; the first cleanup
+            # error is re-raised at the end. Names are unique per run, so every
+            # name match belongs to this test.
+            failures: list[BaseException] = []
+            router_ids = {router_id} if router_id is not None else set()
+            try:
+                router_ids |= {
+                    r.id for r in client.routers.list(name=router_name) if r.name == router_name
+                }
+            except Exception as exc:
+                failures.append(exc)
+            for rid in router_ids:
+                try:
+                    client.routers.delete(rid)
+                    client.routers.wait_until_deleted(rid, timeout=600)
+                except Exception as exc:
+                    failures.append(exc)
+            network_ids = {network_id} if network_id is not None else set()
+            try:
+                network_ids |= {n.id for n in client.networks.list(name=name) if n.name == name}
+            except Exception as exc:
+                failures.append(exc)
+            for nid in network_ids:
+                try:
+                    client.networks.delete(nid)
+                    _wait_until_absent(lambda nid=nid: client.networks.get(nid))
+                except BaseException as exc:
+                    failures.append(exc)
+            if failures:
+                raise failures[0]
