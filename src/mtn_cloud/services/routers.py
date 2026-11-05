@@ -91,8 +91,10 @@ class RoutersService(Service[Router]):
         subnet reference. When no interface names the subnet directly, each
         such interface's network is checked for the subnet, and an interface
         matches only if it is on that network and has the subnet's CIDR.
-        Networks the caller cannot read, such as a router's external gateway
-        network, are skipped.
+        The subnet must name that network as its parent. Networks that return
+        404, such as a router's external gateway network, are skipped; a 403 is
+        raised if no interface matched, so a permission problem is not reported
+        as a missing interface.
         """
 
         interfaces = self.list_interfaces(router_id)
@@ -116,14 +118,21 @@ class RoutersService(Service[Router]):
             if interface.subnet_id is None and interface.network is not None
         ]
         networks = NetworksService(self._core)
+        denied: ForbiddenError | None = None
         for network_id in sorted({i.network.id for i in unreferenced if i.network is not None}):
             try:
                 candidates = networks.list_subnets(network_id)
-            except (NotFoundError, ForbiddenError):
+            except NotFoundError:
                 # Gateway interfaces sit on provider networks the tenant cannot
                 # read; the requested subnet cannot be identified there.
                 continue
-            subnet = next((s for s in candidates if s.id == subnet_id), None)
+            except ForbiddenError as exc:
+                denied = denied or exc
+                continue
+            subnet = next(
+                (s for s in candidates if s.id == subnet_id and s.network_id == network_id),
+                None,
+            )
             if subnet is None:
                 continue
             return [
@@ -134,6 +143,9 @@ class RoutersService(Service[Router]):
                 and subnet.cidr is not None
                 and interface.cidr == subnet.cidr
             ]
+        if denied is not None:
+            # A permission problem must not read as "no interface for subnet".
+            raise denied
         return []
 
     def list_types(self, *, limit: int = 100, offset: int = 0) -> List[dict[str, Any]]:

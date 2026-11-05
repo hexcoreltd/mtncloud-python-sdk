@@ -305,3 +305,40 @@ def test_fallback_propagates_other_network_errors(client: MtnCloudClient, transp
     ]
     with pytest.raises(ServerError):
         client.routers.get_interface(9, 45)
+
+
+def test_fallback_ignores_a_subnet_without_this_parent_network(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.side_effect = [
+        router_with_interfaces({"cidr": "10.0.0.0/24", "network": {"id": 72}}),
+        HttpResponse(200, {}, {"subnets": [{"id": 45, "cidr": "10.0.0.0/24"}]}),
+    ]
+    with pytest.raises(LookupNotFoundError):
+        client.routers.get_interface(9, 45)
+
+
+def test_fallback_needs_a_cidr_on_both_sides(client: MtnCloudClient, transport: Mock) -> None:
+    transport.request.side_effect = [
+        router_with_interfaces({"network": {"id": 72}}),
+        subnets_of(72, (45, "10.0.0.0/24")),
+    ]
+    with pytest.raises(LookupNotFoundError):
+        client.routers.get_interface(9, 45)
+
+
+def test_permission_denial_is_reported_when_nothing_matches(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    # A 404 on a gateway network is expected and skipped quietly, but a 403
+    # must not turn into a misleading "no interface" when nothing matched.
+    transport.request.side_effect = [
+        router_with_interfaces(
+            {"cidr": "203.0.113.0/24", "network": {"id": 3}},
+            {"cidr": "10.0.0.0/24", "network": {"id": 72}},
+        ),
+        HttpResponse(404, {}, {"message": "Network not found"}),
+        HttpResponse(403, {}, {"message": "denied"}),
+    ]
+    with pytest.raises(ForbiddenError):
+        client.routers.get_interface(9, 45)
