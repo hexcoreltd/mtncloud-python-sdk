@@ -127,19 +127,19 @@ def test_live_snapshot_process_restore_delete(mutation_client: MtnCloudClient) -
             instance_ids |= {
                 i.id for i in client.instances.list(name=instance_name) if i.name == instance_name
             }
-        except Exception as exc:
+        except BaseException as exc:
             failures.append(exc)
         for host_id in instance_ids:
             try:
                 for leftover in client.instances.list_snapshots(host_id):
                     if leftover.name == snapshot_name:
                         client.snapshots.delete(leftover.id)
-            except Exception as exc:
+            except BaseException as exc:
                 failures.append(exc)
             try:
                 client.instances.delete(host_id, force=True)
                 client.instances.wait_until_deleted(host_id, timeout=600, poll_interval=15)
-            except Exception as exc:
+            except BaseException as exc:
                 failures.append(exc)
         if failures:
             raise failures[0]
