@@ -103,3 +103,16 @@ live validation remains pending. CLI scope validation, pagination, JSON/table
 projection, error-message sanitization and exit codes have mocked regression
 coverage. Debug tracebacks remain sensitive because they include original
 exception causes.
+
+## Backup configurations, jobs and results (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_backups.py -q -x --tb=short
+```
+
+These GET-only checks inspect existing configurations, results and job details,
+and compare successive one-item pages when at least two items are reported.
+Empty collections or insufficient pagination data skip the corresponding
+checks. They never trigger execution, deletion or restore; those lifecycle
+contracts remain pending. See the [backup guide](backup-recovery.md).

@@ -41,6 +41,8 @@ class Service(Generic[T]):
         body = self._core.request("GET", self.path, params=params)
         if not isinstance(body, Mapping):
             raise MtnCloudError(f"Invalid response from {self.path}: expected an object")
+        if body.get("success") is False:
+            raise MtnCloudError("Collection request was rejected", method="GET", path=self.path)
 
         raw_items = body.get(self.list_key)
         if not isinstance(raw_items, list):
@@ -50,9 +52,19 @@ class Service(Generic[T]):
 
         meta = body.get("meta")
         meta = meta if isinstance(meta, Mapping) else {}
-        offset = self._integer(meta.get("offset"), default=0) or 0
-        limit = self._integer(meta.get("max") or meta.get("limit"))
-        total = self._integer(meta.get("total") or meta.get("size"))
+        requested = params or {}
+        offset = (
+            self._integer(
+                meta.get("offset"), default=self._integer(requested.get("offset"), default=0)
+            )
+            or 0
+        )
+        limit = self._integer(meta.get("max"))
+        if limit is None:
+            limit = self._integer(meta.get("limit"), default=self._integer(requested.get("max")))
+        total = self._integer(meta.get("total"))
+        if total is None:
+            total = self._integer(meta.get("size"))
         return Page(
             items=[self.model.model_validate(item) for item in raw_items],
             offset=offset,
@@ -84,6 +96,10 @@ class Service(Generic[T]):
         body = self._core.request("GET", f"{self.path}/{resource_id}")
         if not isinstance(body, Mapping):
             raise MtnCloudError(f"Invalid response from {self.path}/{resource_id}")
+        if body.get("success") is False:
+            raise MtnCloudError(
+                "Resource request was rejected", method="GET", path=f"{self.path}/{resource_id}"
+            )
         payload = body.get(self.item_key, body)
         if not isinstance(payload, Mapping):
             raise MtnCloudError(f"Invalid '{self.item_key}' response from {self.path}")

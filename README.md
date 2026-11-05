@@ -447,6 +447,17 @@ models for later reconstruction, use `model_dump(exclude_unset=True)` to
 preserve the difference between omitted fields and explicit null values.
 Volume mutation operations and live verification remain pending.
 
+## Backup discovery and recovery preparation
+
+Use `cloud.backups.list_results_page(backup_id)` and `list_jobs_page()` for
+typed pagination metadata, or `list_all_results(backup_id)` and
+`list_all_jobs()` to traverse the collections. Existing `list_results()` and
+`list_jobs()` return one page. Execution methods submit work and reject
+explicit failed responses; acceptance does not prove completion or recovery.
+See the [backup guide](docs/backup-recovery.md) for examples and verification
+limits. Live execution, restore workflows and retention management remain
+pending.
+
 ## Object-storage configuration
 
 `cloud.storage_buckets` manages MTN Cloud's storage-provider configurations.

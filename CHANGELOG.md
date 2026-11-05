@@ -10,6 +10,10 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Typed backup result/job pages and all-page collection methods, parent-result
+  validation and opt-in read-only live backup contract tests. Live verification
+  remains pending.
+
 - Read-only CLI storage-bucket configuration list/describe and opt-in inventory,
   with scalar-only output, sanitized normal errors and pre-request rejection
   of unsupported group/zone scopes. Default inventory remains unchanged;
@@ -77,6 +81,10 @@ would normally require a major release in a mature stable SDK.
 
 ### Changed
 
+- Backup pagination rejects invalid limits and offsets before requests.
+- Shared page adapters use requested offset/limit as metadata fallbacks and
+  preserve explicit zero totals.
+
 - Storage-bucket name lookup traverses all pages and uses `LookupNotFoundError`
   and `AmbiguousLookupError`. Both remain compatible with their existing base
   exception types (`NotFoundError` and `ValueError`, respectively).
@@ -109,6 +117,10 @@ would normally require a major release in a mature stable SDK.
 - Standardized repository formatting and lint compliance for CI quality gates.
 
 ### Fixed
+
+- Backup execution submissions and deletion reject explicit `success: false`
+  responses; shared collection/detail adapters also reject failed envelopes
+  even when otherwise valid resource data is present.
 
 - Storage-bucket detail/mutation adapters reject explicit `success: false`
   responses and wrap malformed detail payloads in SDK errors with generic

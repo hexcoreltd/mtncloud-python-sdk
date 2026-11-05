@@ -289,6 +289,13 @@ Progress: **read-only discovery and selection implemented; lifecycle pending**
 - Mocked regressions cover pagination, duplicate names, partial metadata and
   failures on later pages. A read-only block-storage live suite is prepared;
   verification is deferred until service recovery.
+- Backup result/job page and all-page methods reuse the common collection
+  adapter, with parent-result validation and local pagination checks.
+- Execution submissions and configuration deletion reject explicit failed
+  responses. Accepted submissions are not interpreted as completed backups.
+- Mocked backup regressions pass and read-only configuration/result/job live
+  checks are prepared. Offset support and lifecycle behavior remain pending
+  live verification; see [backup guide](backup-recovery.md).
 
 Still to implement and verify:
 
