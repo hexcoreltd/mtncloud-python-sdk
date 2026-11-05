@@ -4,7 +4,7 @@ from typing import Any
 
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.resource_pool import ResourcePool
-from mtn_cloud.modern_exceptions import NotFoundError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, MtnCloudError, NotFoundError
 from mtn_cloud.services.base import Page
 
 
@@ -29,12 +29,16 @@ class ResourcePoolsService:
             "provisionTypeCode": provision_type_code,
         }
         body = self._core.request("GET", self.path, params=params)
-        if not isinstance(body, dict):
-            raise ValueError("Invalid resource-pool response: expected an object")
+        if not isinstance(body, dict) or body.get("success") is False:
+            raise MtnCloudError("Invalid resource-pool response", method="GET", path=self.path)
 
-        raw_items = body.get("data", [])
+        raw_items = body.get("data")
         if not isinstance(raw_items, list):
-            raise ValueError("Invalid resource-pool response: expected 'data' to be a list")
+            raise MtnCloudError(
+                "Invalid resource-pool response: expected 'data' to be a list",
+                method="GET",
+                path=self.path,
+            )
 
         pools = [
             ResourcePool.model_validate(item)
@@ -63,5 +67,5 @@ class ResourcePoolsService:
         if not matches:
             raise NotFoundError(f"Resource pool '{name}' not found")
         if len(matches) > 1:
-            raise ValueError(f"Resource pool '{name}' is ambiguous")
+            raise AmbiguousLookupError(f"Resource pool '{name}' is ambiguous")
         return matches[0]

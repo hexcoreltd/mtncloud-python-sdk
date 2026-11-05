@@ -3,7 +3,7 @@
 from typing import Any
 
 from mtn_cloud.models.instance_type import InstanceType
-from mtn_cloud.modern_exceptions import NotFoundError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, NotFoundError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -44,17 +44,12 @@ class InstanceTypesService(Service[InstanceType]):
         return self._get(instance_type_id)
 
     def get_by_code(self, code: str) -> InstanceType:
-        matches = [item for item in self.list(code=code, limit=100) if item.code == code]
+        matches = [item for item in self.list_all(code=code) if item.code == code]
         if not matches:
             raise NotFoundError(f"Instance type with code '{code}' not found")
         if len(matches) > 1:
-            raise ValueError(f"Instance type code '{code}' is ambiguous")
+            raise AmbiguousLookupError(f"Instance type code '{code}' is ambiguous")
         return matches[0]
 
     def get_by_name(self, name: str) -> InstanceType:
-        matches = [item for item in self.list(name=name, limit=100) if item.name == name]
-        if not matches:
-            raise NotFoundError(f"Instance type with name '{name}' not found")
-        if len(matches) > 1:
-            raise ValueError(f"Instance type name '{name}' is ambiguous")
-        return matches[0]
+        return self._get_by_name("Instance type", name)

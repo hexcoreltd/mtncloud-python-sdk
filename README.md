@@ -344,6 +344,7 @@ mtncloud inventory --only backups -o json
 mtncloud apps list --group production
 mtncloud apps describe ledger --group production
 mtncloud inventory --only apps --group production -o json
+mtncloud plan --name api-01 --type-code MTN-CS10 --group production --plan G1S1 -o json
 mtncloud version
 ```
 
@@ -360,6 +361,7 @@ mtncloud version
   the API filter, which may match partially, while `describe` requires an
   exact match.
 - `mtncloud inventory [--only R1,R2] [--group] [--zone]`
+- `mtncloud plan --name NAME --type-code CODE --group GROUP --plan PLAN`
 - `mtncloud version`
 
 Volume commands support zone scope only. `--group` is rejected with exit code
@@ -426,7 +428,7 @@ stdout. Diagnostics and errors go to stderr, and a failed command leaves
 stdout empty.
 
 JSON documents carry a versioned `schema`: `mtncloud.list/v1`,
-`mtncloud.describe/v1`, `mtncloud.inventory/v1`, `mtncloud.version/v1`, and
+`mtncloud.describe/v1`, `mtncloud.inventory/v1`, `mtncloud.plan/v1`, `mtncloud.version/v1`, and
 `mtncloud.error/v1` for errors on stderr. Within a version, fields may be
 added but not removed or renamed.
 
@@ -459,6 +461,14 @@ resolved fails the whole command.
 
 Closing a pipe early, for example `mtncloud instances list | head`, exits 0
 quietly.
+
+`plan` performs discovery only through the existing SDK dry-run resolver. It
+outputs selected placement identifiers and requested options, excluding raw
+provider configuration. No resource is created, and there is no `--apply`
+option. Resolution does not establish capacity, quota, full network access or
+eventual provisioning success. See [CLI planning](docs/cli-planning.md) for
+defaults, filters, schema and prepared live verification. Live validation of
+this CLI extension remains pending.
 
 Modern `list_all()` calls now fail on detected repeated resource IDs across
 pages or unexpected pagination offsets. Traversal is not a snapshot, and

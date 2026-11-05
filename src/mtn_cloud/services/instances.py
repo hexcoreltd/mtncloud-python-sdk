@@ -14,9 +14,15 @@ from mtn_cloud.models.instance import (
     InstanceUpdate,
     InstanceVolume,
 )
+from mtn_cloud.models.instance_type import InstanceType
 from mtn_cloud.models.plan import ServicePlan
 from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
-from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError, TimeoutError
+from mtn_cloud.modern_exceptions import (
+    AmbiguousLookupError,
+    LookupNotFoundError,
+    MtnCloudError,
+    TimeoutError,
+)
 from mtn_cloud.services.base import Page, Service
 from mtn_cloud.services.groups import GroupsService
 from mtn_cloud.services.instance_types import InstanceTypesService
@@ -381,15 +387,17 @@ class InstancesService(Service[Instance]):
         return value if value.startswith("network-") else f"network-{value}"
 
     @staticmethod
-    def _resolve_layout(instance_type: Any, layout: int | str | None) -> int:
+    def _resolve_layout(instance_type: InstanceType, layout: int | str | None) -> int:
         if isinstance(layout, int):
             return layout
         if isinstance(layout, str):
             if layout.isdigit():
                 return int(layout)
-            match = instance_type.get_layout_by_name(layout)
-            if match is not None:
-                layout_id: object = match.id
+            matches = [item for item in instance_type.layouts if item.name == layout]
+            if len(matches) > 1:
+                raise AmbiguousLookupError(f"Layout '{layout}' is ambiguous")
+            if matches:
+                layout_id: object = matches[0].id
                 if type(layout_id) is int:
                     return layout_id
                 raise ValueError(f"Layout '{layout}' has an invalid identifier")
@@ -507,7 +515,9 @@ class InstancesService(Service[Instance]):
             if not available:
                 raise ValueError("No resource pools are available for this group and zone")
             names = ", ".join(pool.name or pool.code for pool in available)
-            raise ValueError(f"Multiple resource pools are available; choose one: {names}")
+            raise AmbiguousLookupError(
+                f"Multiple resource pools are available; choose one: {names}"
+            )
         return available[0].code
 
     @staticmethod
@@ -525,7 +535,7 @@ class InstancesService(Service[Instance]):
             if len(embedded_matches) == 1:
                 return Cloud.model_validate(embedded_matches[0])
             if len(embedded_matches) > 1:
-                raise ValueError(f"Zone '{zone}' is ambiguous for group '{group.name}'")
+                raise AmbiguousLookupError(f"Zone '{zone}' is ambiguous for group '{group.name}'")
         if isinstance(zone, int) or (isinstance(zone, str) and zone.isdigit()):
             return zones.get(int(zone))
         if isinstance(zone, str):

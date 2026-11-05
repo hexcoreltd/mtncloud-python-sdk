@@ -28,3 +28,13 @@ All examples read credentials from environment variables and avoid committing
 secrets. Mutating examples require an explicit flag. Confirm resource IDs,
 permissions, costs, and cleanup behavior before running them against a live
 tenant.
+
+For a read-only provisioning summary from the CLI, use:
+
+```bash
+uv run mtncloud plan --name api-01 --type-code MTN-CS10 \
+  --group production --plan G1S1 -o json
+```
+
+Use your tenant's selections. See [CLI planning](../docs/cli-planning.md) for
+the output contract and the limits of discovery before provisioning.

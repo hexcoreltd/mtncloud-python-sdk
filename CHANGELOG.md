@@ -10,6 +10,11 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only `mtncloud plan` with versioned JSON/table output, placement
+  resolution through the existing SDK dry run, input validation, sanitized
+  errors and a guarded live check. No creation or apply path is exposed.
+  Mocked regressions pass; CLI live verification remains pending.
+
 - Modern read-only virtual-image service with typed metadata, pagination,
   exact-name lookup, image-origin filters and pre-request input validation.
   Image tags accept upstream name/value objects alongside legacy strings;
@@ -95,6 +100,11 @@ would normally require a major release in a mature stable SDK.
 - Modern read-only provisioned-application discovery at `/apps`.
 
 ### Changed
+
+- Provisioning dependency group/zone name and instance-type name/code lookups
+  traverse all pages. Duplicate named layouts and ambiguous type/plan/pool/zone
+  selections raise `AmbiguousLookupError` (still a `ValueError`). Pool and
+  provisioning-plan discovery reject malformed or explicitly failed envelopes.
 
 - Shared collection pagination no longer treats page-local `meta.size` as the
   collection total when `meta.total` is absent, avoiding premature truncation.

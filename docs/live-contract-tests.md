@@ -2,6 +2,18 @@
 
 The live tests use credentials from `.env` through `ClientSettings`.
 
+## CLI instance planning (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_cli_plan.py -q -x --tb=short
+```
+
+Configure existing placement selectors as described in
+[CLI planning](cli-planning.md#live-verification). Missing selectors skip this
+test. The command resolves selections through GET requests only and checks
+the JSON summary; it does not create an instance or validate its lifecycle.
+
 ## Virtual images (pending live verification)
 
 ```bash

@@ -3,7 +3,6 @@
 from typing import Any
 
 from mtn_cloud.models.group import Group
-from mtn_cloud.modern_exceptions import AmbiguousLookupError, NotFoundError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -36,10 +35,4 @@ class GroupsService(Service[Group]):
         return self._get(group_id)
 
     def get_by_name(self, name: str) -> Group:
-        matches = [group for group in self.list(name=name, limit=100) if group.name == name]
-        if not matches:
-            raise NotFoundError(f"Group '{name}' not found")
-        if len(matches) > 1:
-            ids = sorted(item.id for item in matches)
-            raise AmbiguousLookupError(f"Group name '{name}' is ambiguous: ids {ids}")
-        return matches[0]
+        return self._get_by_name("Group", name)

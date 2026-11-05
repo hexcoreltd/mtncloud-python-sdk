@@ -16,6 +16,7 @@ from mtn_cloud.cli import inventory as inventory_module
 from mtn_cloud.cli import output
 from mtn_cloud.cli.errors import EXIT_OK, AmbiguousNameError, MissingCredentialsError
 from mtn_cloud.cli.output import OutputFormat
+from mtn_cloud.cli.planning import register_plan
 from mtn_cloud.cli.registry import (
     BACKUP_JOB_COLUMNS,
     BACKUP_JOB_FIELDS,
@@ -214,6 +215,7 @@ def build_app(
     for spec in REGISTRY.values():
         app.add_typer(_resource_app(spec, state), name=spec.name)
 
+    register_plan(app, state)
     return app
 
 

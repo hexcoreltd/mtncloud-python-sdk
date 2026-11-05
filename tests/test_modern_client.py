@@ -7,6 +7,7 @@ import requests
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.instance import InstanceCreate, InstanceUpdate
+from mtn_cloud.models.instance_type import InstanceType
 from mtn_cloud.models.network import NetworkCreate, NetworkUpdate
 from mtn_cloud.models.router import RouterCreate
 from mtn_cloud.models.security_group import SecurityGroupCreate, SecurityGroupRuleCreate
@@ -919,8 +920,7 @@ def test_ambiguous_lookups_raise_value_error_not_not_found(
 
 
 def test_provisioning_rejects_unknown_layout_name_as_not_found() -> None:
-    instance_type = Mock(code="MTN-CS10")
-    instance_type.get_layout_by_name.return_value = None
+    instance_type = InstanceType(id=10, code="MTN-CS10")
 
     with pytest.raises(LookupNotFoundError, match="Layout 'missing' not found"):
         InstancesService._resolve_layout(instance_type, "missing")

@@ -3,7 +3,7 @@
 from typing import Any, List
 
 from mtn_cloud.models.plan import ServicePlan
-from mtn_cloud.modern_exceptions import MtnCloudError, NotFoundError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, MtnCloudError, NotFoundError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -38,7 +38,7 @@ class PlansService(Service[ServicePlan]):
         if not matches:
             raise NotFoundError(f"Service plan with name '{name}' not found")
         if len(matches) > 1:
-            raise ValueError(f"Service plan name '{name}' is ambiguous")
+            raise AmbiguousLookupError(f"Service plan name '{name}' is ambiguous")
         return matches[0]
 
     def list_for_provisioning(
@@ -64,9 +64,15 @@ class PlansService(Service[ServicePlan]):
                 "resourcePoolId": resource_pool,
             },
         )
-        if not isinstance(body, dict) or not isinstance(body.get("plans"), list):
+        if (
+            not isinstance(body, dict)
+            or body.get("success") is False
+            or not isinstance(body.get("plans"), list)
+        ):
             raise MtnCloudError(
-                "Invalid provisioning service-plan response: expected a 'plans' list"
+                "Invalid provisioning service-plan response: expected a 'plans' list",
+                method="GET",
+                path="/instances/service-plans",
             )
         return [ServicePlan.model_validate(item) for item in body["plans"]]
 
@@ -92,5 +98,5 @@ class PlansService(Service[ServicePlan]):
         if not matches:
             raise NotFoundError(f"Service plan '{name}' not found for this provisioning context")
         if len(matches) > 1:
-            raise ValueError(f"Service plan '{name}' is ambiguous")
+            raise AmbiguousLookupError(f"Service plan '{name}' is ambiguous")
         return matches[0]

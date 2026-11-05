@@ -36,6 +36,14 @@ mismatches. Live validation and managed-database lifecycle coverage remain pendi
 
 ## 1. Goal
 
+Planning extension: `mtncloud plan` now exposes the existing SDK's GET-only
+dry-run resolver with `mtncloud.plan/v1` JSON/table output. It reports selected
+placement and requested options, validates local inputs and sanitizes normal
+errors. There is no apply path. Mocked regressions pass and a configured live
+check is prepared; CLI live verification remains pending. See
+[CLI planning](../../cli-planning.md). The original v1 non-goals below record
+the initial release scope.
+
 Ship a read-only `mtncloud` command-line interface, inside this repository and
 built on the modern SDK, whose JSON output and exit codes are stable enough for
 CI pipelines and the planned GitHub Action to depend on.

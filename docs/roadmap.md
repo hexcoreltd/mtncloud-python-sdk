@@ -468,7 +468,13 @@ mutation services.
 ### Milestone 10 — CLI, GitHub Action, and infrastructure integrations
 
 - Official `mtncloud` command-line interface (read-only `list`, `describe`,
-  `inventory` and `version` done; `plan` and floating IPs are the next CLI items)
+  `inventory`, `version` and dry-run `plan` implemented; floating IPs pending)
+- Read-only instance planning emits `mtncloud.plan/v1` JSON or tables using the
+  existing SDK resolver, with selected placement IDs, requested options and
+  sanitized errors. Dependency lookups traverse group/zone/type pages and fail
+  on typed ambiguity, including duplicate named layouts. Mocked regression
+  coverage passes; a configured GET-only live check is prepared and MTN live
+  verification remains pending. See [CLI planning](cli-planning.md).
 - Volume list/describe and opt-in volume inventory, with zone-only scope,
   attachment evidence and scalar-field output. Existing default inventory
   remains unchanged. Mocked CLI regression coverage is complete; live verification
@@ -627,8 +633,8 @@ A service is ready for a public modern SDK release when it has:
 4. ~~Add operation metadata and request-ID propagation to the core client.~~
    Done.
 5. Build the `mtncloud` CLI around read-only inventory and dry-run output.
-   ~~Read-only inventory~~ is done. Dry-run output (`plan`) and floating IPs
-   are pending.
+   ~~Read-only inventory and dry-run output (`plan`)~~ are implemented.
+   CLI plan live verification and standalone floating IPs remain pending.
 6. Implement the first GitHub Action for authenticated inventory and dry-run
    provisioning.
 7. Add migration-oriented examples and evidence export.
