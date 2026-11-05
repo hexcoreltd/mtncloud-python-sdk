@@ -482,10 +482,11 @@ eventual provisioning success. See [CLI planning](docs/cli-planning.md) for
 defaults, filters, schema and prepared live verification. Live validation of
 this CLI extension remains pending.
 
-Modern `list_all()` calls now fail on detected repeated resource IDs across
-pages or unexpected pagination offsets. Traversal is not a snapshot, and
-concurrent changes can require a retry. No duplicate or partial result is
-returned after those errors.
+Modern `list_all()` calls return each resource ID once and fail on unexpected
+pagination offsets. MTN Cloud can report a `meta.total` larger than the items
+it returns and repeat items at later offsets, so repeated IDs are dropped and a
+page that adds no new IDs ends pagination. Traversal is not a snapshot, and
+concurrent changes can shift items between pages.
 
 ## Block-storage discovery and selection
 

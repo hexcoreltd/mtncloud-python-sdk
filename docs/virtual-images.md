@@ -22,8 +22,10 @@ with MtnCloudClient() as cloud:
     detail = cloud.virtual_images.get(image.id)
 ```
 
-`list()` returns one page. `list_all()` follows offsets and fails on detected
-overlap or offset mismatches. Name lookup searches all pages and requires an
+`list()` returns one page. `list_all()` follows offsets, returns each image
+ID once and fails on offset mismatches. MTN Cloud has been observed to report a
+`total` larger than the images it returns; `list_all()` stops when a page adds
+no new IDs. Name lookup searches all pages and requires an
 exact, unique name: missing matches raise `LookupNotFoundError`; duplicates
 raise `AmbiguousLookupError`. Format and origin filters are retained on every
 page. Permission and later-page errors propagate without returning partial

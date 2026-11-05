@@ -47,17 +47,17 @@ mutations or inferred database classification are introduced.
 
 ## Pagination guarantees and limits
 
-The shared `list_all()` adapter now rejects unexpected nonempty-page offsets
-and integer resource IDs repeated across pages. It follows an explicitly
-reported page-size cap when no total is available. Detected overlap raises
-`MtnCloudError` rather than returning duplicates or partial results. This
-applies to every modern service using that adapter.
+The shared `list_all()` adapter rejects unexpected nonempty-page offsets and
+follows an explicitly reported page-size cap when no total is available. It
+returns each integer resource ID once: repeated items on later pages are
+dropped, and a page that adds no new IDs ends pagination. `meta.total` is a
+hint, because MTN Cloud has been observed to over-report it and repeat items
+at later offsets. This applies to every modern service using that adapter.
 
-Collection traversal is not a snapshot. Concurrent resource changes can cause
-overlap and an intentional error; retry discovery when the collection is
-stable. These checks do not detect every possible omission or prove that a
-provider honors filters. Live validation of pagination and group filtering
-remains pending.
+Collection traversal is not a snapshot. Concurrent resource changes can shift
+items between pages, and a provider that ignores `offset` yields only its first
+page. These checks do not detect every possible omission or prove that a
+provider honors filters. Live validation of group filtering remains pending.
 
 ## Live verification
 
