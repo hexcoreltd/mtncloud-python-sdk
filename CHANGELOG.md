@@ -10,6 +10,9 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Dedicated opt-in live networking contract checks and an operation inventory
+  separating implemented methods from live-verified lifecycle coverage.
+
 - Rewritten runnable examples for the modern SDK, safe provisioning workflows,
   storage configuration, router management, and CLI inventory usage.
 - Read-only `mtncloud` CLI (`[cli]` extra) with `instances`, `networks`, `routers`
@@ -71,6 +74,13 @@ would normally require a major release in a mature stable SDK.
 - Standardized repository formatting and lint compliance for CI quality gates.
 
 ### Fixed
+
+- Router creation and waiters preserve submitted resource IDs for cleanup on
+  follow-up failures, retaining HTTP exception types and request metadata.
+- Router creation validates waiter options before submitting a resource;
+  deletion handles already-absent resources and rejects `success: false`.
+- Router example records the resource ID before waiting and recovers it from
+  follow-up errors for optional cleanup. Live lifecycle validation is pending.
 
 - Modern exceptions, including `TimeoutError`, can now be pickled, so they
   can be passed between processes (for example through `multiprocessing` or

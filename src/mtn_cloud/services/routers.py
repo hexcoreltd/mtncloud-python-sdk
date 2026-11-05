@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from math import isfinite
 from typing import Any, List
+
+from pydantic import ValidationError as ModelValidationError
 
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.router import ExternalNetwork, Router, RouterCreate, RouterInterface
@@ -161,8 +164,15 @@ class RoutersService(Service[Router]):
         timeout: float = 300,
         poll_interval: float = 5,
     ) -> Router:
-        """Create an MTN router and optionally wait until it is ready."""
+        """Create a router, preserving its submitted ID on follow-up errors.
 
+        When a read or waiter fails after a successful POST, the exception's
+        ``response["router_id"]`` identifies the resource to inspect or clean up.
+        A failed POST is never automatically resubmitted.
+        """
+
+        if wait:
+            self._validate_wait_options(timeout, poll_interval)
         type_id = router_type_id or self.neutron_router_type_id()
         body = self._core.request(
             "POST",
@@ -174,7 +184,7 @@ class RoutersService(Service[Router]):
         router_id = body.get("id")
         if type(router_id) is not int or router_id <= 0:
             raise MtnCloudError("Router creation did not return a valid ID", response=body)
-        router = self.get(router_id)
+        router = self._get_with_context(router_id)
         return (
             self.wait_until_ready(router.id, timeout=timeout, poll_interval=poll_interval)
             if wait
@@ -182,13 +192,54 @@ class RoutersService(Service[Router]):
         )
 
     def delete(self, router_id: int) -> bool:
-        """Delete an MTN neutron router."""
+        """Submit deletion; an already absent router is considered success.
 
-        router = self.get(router_id)
+        Use ``wait_until_deleted`` to confirm asynchronous removal.
+        """
+
+        try:
+            router = self._get_with_context(router_id)
+        except NotFoundError:
+            return True
         if router.type is None or router.type.code != "neutronRouter":
             raise ValueError(f"Router {router_id} is not an MTN neutronRouter")
-        self._core.request("DELETE", f"{self.path}/{router_id}")
+        try:
+            body = self._core.request("DELETE", f"{self.path}/{router_id}")
+        except NotFoundError:
+            # Another actor may have removed it since the preceding GET.
+            return True
+        except MtnCloudError as exc:
+            exc.response = {**(exc.response or {}), "router_id": router_id}
+            raise
+        if isinstance(body, dict) and body.get("success") is False:
+            raise MtnCloudError(
+                f"Router {router_id} deletion was rejected",
+                response={**body, "router_id": router_id},
+            )
         return True
+
+    @staticmethod
+    def _validate_wait_options(timeout: float, poll_interval: float) -> None:
+        if (
+            not isfinite(timeout)
+            or not isfinite(poll_interval)
+            or timeout <= 0
+            or poll_interval <= 0
+        ):
+            raise ValueError("timeout and poll_interval must be finite and positive")
+
+    def _get_with_context(self, router_id: int) -> Router:
+        """Keep the cleanup ID even when a detail read cannot be parsed."""
+        try:
+            return self.get(router_id)
+        except MtnCloudError as exc:
+            exc.response = {**(exc.response or {}), "router_id": router_id}
+            raise
+        except ModelValidationError as exc:
+            raise MtnCloudError(
+                f"Router {router_id} returned an invalid detail response",
+                response={"router_id": router_id},
+            ) from exc
 
     def wait_until_ready(
         self,
@@ -199,21 +250,24 @@ class RoutersService(Service[Router]):
     ) -> Router:
         """Wait for a router to reach an active state."""
 
-        if timeout <= 0 or poll_interval <= 0:
-            raise ValueError("timeout and poll_interval must be positive")
+        self._validate_wait_options(timeout, poll_interval)
         deadline = self._clock() + timeout
         while True:
-            router = self.get(router_id)
+            router = self._get_with_context(router_id)
             status = (router.status or "").lower()
             if status in {"ok", "available", "active"}:
                 return router
             if status in {"failed", "error"}:
-                raise MtnCloudError(f"Router {router_id} provisioning failed: {status}")
+                raise MtnCloudError(
+                    f"Router {router_id} provisioning failed: {status}",
+                    response={"router_id": router_id, "status": status},
+                )
             remaining = deadline - self._clock()
             if remaining <= 0:
                 raise TimeoutError(
                     f"Router {router_id} did not become ready",
                     timeout=timeout,
+                    response={"router_id": router_id, "status": status},
                 )
             self._sleeper(min(poll_interval, remaining))
 
@@ -226,12 +280,11 @@ class RoutersService(Service[Router]):
     ) -> bool:
         """Wait until the router is no longer returned by the API."""
 
-        if timeout <= 0 or poll_interval <= 0:
-            raise ValueError("timeout and poll_interval must be positive")
+        self._validate_wait_options(timeout, poll_interval)
         deadline = self._clock() + timeout
         while True:
             try:
-                self.get(router_id)
+                self._get_with_context(router_id)
             except NotFoundError:
                 return True
             remaining = deadline - self._clock()
@@ -239,5 +292,6 @@ class RoutersService(Service[Router]):
                 raise TimeoutError(
                     f"Router {router_id} was not deleted",
                     timeout=timeout,
+                    response={"router_id": router_id},
                 )
             self._sleeper(min(poll_interval, remaining))

@@ -129,4 +129,4 @@ jobs:
           MTN_CLOUD_RUN_LIVE_TESTS: "1"
           MTN_CLOUD_TOKEN: ${{ secrets.MTN_CLOUD_TOKEN }}
           MTN_CLOUD_API_KEY: ${{ secrets.MTN_CLOUD_API_KEY }}
-        run: uv run pytest tests/integration/test_live_contract.py -q -m "not mutation"
+        run: uv run pytest tests/integration -q -m "not mutation"

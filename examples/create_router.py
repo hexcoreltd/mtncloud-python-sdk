@@ -86,11 +86,19 @@ def main() -> None:
                     internal_subnet_ids=args.internal_subnet,
                     external_network_id=external_id,
                 ),
-                wait=True,
+                wait=False,
             )
             router_id = router.id
+            print(f"Submitted router: {router_id}", flush=True)
+            router = cloud.routers.wait_until_ready(router_id)
             print(json.dumps({"id": router.id, "name": router.name, "status": router.status}))
-    except (ValueError, MtnCloudError) as exc:
+    except MtnCloudError as exc:
+        if router_id is None and exc.response:
+            submitted_id = exc.response.get("router_id")
+            if type(submitted_id) is int and submitted_id > 0:
+                router_id = submitted_id
+        raise SystemExit(f"Router operation failed: {exc}") from exc
+    except ValueError as exc:
         raise SystemExit(f"Router operation failed: {exc}") from exc
     finally:
         if args.delete_after and router_id is not None:

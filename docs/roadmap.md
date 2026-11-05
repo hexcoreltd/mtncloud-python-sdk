@@ -221,6 +221,14 @@ Priority: **current implementation milestone**
 
 Progress: **partially implemented**
 
+Live verification update (2026-11-05): authenticated networking probes timed
+out; additional console and `/api/whoami` probes returned HTML HTTP 403.
+New mutation contracts remain unverified. A dedicated read-only networking
+suite now checks envelopes, detail retrieval, subnet parent references and
+embedded router interfaces. See [networking contract status](networking-contracts.md)
+for the operation inventory and access blocker. IP-pool discovery must not be
+counted as standalone floating-IP lifecycle support.
+
 Implemented in the current development line:
 
 - Modern network type discovery
@@ -240,6 +248,14 @@ Implemented in the current development line:
 - MTN neutron-router creation and deletion
 - Router readiness and deletion waiters
 - Typed router interface discovery and subnet-based interface lookup
+- Router lifecycle recovery IDs, preflight waiter validation and idempotent
+  deletion (implemented with mocked regression coverage; live verification pending)
+
+Prepared for the next healthy live environment:
+
+- Guarded router create/readiness/delete lifecycle test with cleanup using the
+  submitted ID, including follow-up read failures. This test requires explicitly
+  configured test resource IDs and a dedicated unattached subnet.
 
 Still to implement and verify:
 
