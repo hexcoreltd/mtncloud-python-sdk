@@ -155,7 +155,7 @@ def test_incompatible_placement_prevents_submission(
     assert all(call.args[0] == "GET" for call in transport.request.call_args_list)
 
 
-@pytest.mark.parametrize("index", range(4))
+@pytest.mark.parametrize("index", [0, 2, 3])
 def test_discovery_permission_failures_are_not_bypassed(
     client: MtnCloudClient, transport: Mock, index: int
 ) -> None:
@@ -167,3 +167,29 @@ def test_discovery_permission_failures_are_not_bypassed(
     assert raised.value.request_id == "req-denied"
     assert transport.request.call_count == index + 1
     assert all(call.args[0] == "GET" for call in transport.request.call_args_list)
+
+
+def test_zone_permission_denial_skips_only_the_enabled_check(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    # Live MTN contract (2026-11-05): tenant credentials get 403 on /zones/{id}.
+    responses = discovery_responses()
+    responses[1] = HttpResponse(403, {}, {"message": "denied"})
+    transport.request.side_effect = responses
+    assert client.networks.validate_create(request_model()) is None
+    assert [call.args[:2] for call in transport.request.call_args_list] == [
+        ("GET", "/groups/1"),
+        ("GET", "/zones/2"),
+        ("GET", "/network-types/3"),
+        ("GET", "/options/zonePools"),
+    ]
+    assert transport.request.call_args.kwargs["params"]["cloudId"] == 2
+
+
+def test_zone_outside_the_group_fails_before_the_zone_lookup(
+    client: MtnCloudClient, transport: Mock
+) -> None:
+    transport.request.side_effect = discovery_responses()
+    with pytest.raises(ValueError, match="not associated with group"):
+        client.networks.validate_create(request_model(cloud_id=9))
+    assert transport.request.call_count == 1

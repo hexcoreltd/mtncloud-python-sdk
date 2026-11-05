@@ -179,6 +179,10 @@ would normally require a major release in a mature stable SDK.
 ### Fixed
 
 - Live MTN contract mismatches found on 2026-11-05:
+  - `networks.validate_create` no longer fails for tenant credentials, which
+    get HTTP 403 on `/zones/{id}`. A 403 on that lookup now skips only the
+    zone-enabled check; group membership, network type and resource pool are
+    still verified, and every other 403 still raises.
   - `StorageVolume.datastore_id` accepts the integer `datastoreId` MTN returns,
     which previously broke volume listing and the `mtncloud volumes` commands.
   - `Process.sub_id` accepts the integer `subId` MTN returns for some

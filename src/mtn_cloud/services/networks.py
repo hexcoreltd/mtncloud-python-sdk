@@ -12,7 +12,7 @@ from mtn_cloud.models.network import (
     NetworkUpdate,
     Subnet,
 )
-from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
+from mtn_cloud.modern_exceptions import ForbiddenError, LookupNotFoundError, MtnCloudError
 from mtn_cloud.services.base import Page, Service
 from mtn_cloud.services.groups import GroupsService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
@@ -64,8 +64,12 @@ class NetworksService(Service[Network]):
         """Validate network addressing and placement using read-only requests.
 
         Requires explicit OpenStack type and resource pool IDs. Local input
-        checks run before discovery. Permission and transport errors propagate;
-        successful discovery is a preflight check, not a reservation.
+        checks run before discovery. Permission and transport errors propagate,
+        with one exception: MTN Cloud tenant credentials cannot read
+        ``/zones/{id}``, so a 403 on that lookup skips only the zone-enabled
+        check. The zone's membership of the group is still verified from the
+        group's embedded data. Successful discovery is a preflight check, not a
+        reservation.
         """
 
         self._validate_create_inputs(request)
@@ -74,19 +78,22 @@ class NetworksService(Service[Network]):
             raise ValueError(f"Group {group.id} is inactive")
         if request.cloud_id not in group.cloud_ids:
             raise ValueError(f"Zone {request.cloud_id} is not associated with group {group.id}")
-        zone = ZonesService(self._core).get(request.cloud_id)
-        if not zone.is_enabled:
+        try:
+            zone = ZonesService(self._core).get(request.cloud_id)
+        except ForbiddenError:
+            zone = None
+        if zone is not None and not zone.is_enabled:
             raise ValueError(f"Zone {zone.id} is disabled")
         # The local checks ensure these optional model fields are present.
         assert request.type_id is not None and request.resource_pool_id is not None
         network_type = self.get_type(request.type_id)
         if not network_type.is_openstack or not network_type.creatable:
             raise ValueError(f"Network type {network_type.id} is not a creatable OpenStack type")
-        pools = ResourcePoolsService(self._core).list(zone_id=zone.id, group_id=group.id)
+        pools = ResourcePoolsService(self._core).list(zone_id=request.cloud_id, group_id=group.id)
         if not any(pool.id == request.resource_pool_id for pool in pools):
             raise ValueError(
                 f"Resource pool {request.resource_pool_id} is not available "
-                f"for group {group.id} and zone {zone.id}"
+                f"for group {group.id} and zone {request.cloud_id}"
             )
 
     @staticmethod
