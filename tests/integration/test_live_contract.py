@@ -97,40 +97,43 @@ def test_live_provisioning_dry_run(live_client: MtnCloudClient) -> None:
 
 @pytest.mark.mutation
 def test_live_create_wait_delete(live_client: MtnCloudClient) -> None:
+    """Provision one small VM from explicit selectors, wait for it, then delete it.
+
+    Never picks the "first" group, type, pool or plan: those can belong to other
+    projects or be unsuitable appliances. A dry run validates the selection
+    before anything is created.
+    """
     if not _enabled("MTN_CLOUD_ALLOW_MUTATIONS"):
         pytest.skip("set MTN_CLOUD_ALLOW_MUTATIONS=1 to run mutation tests")
 
-    groups = live_client.groups.list(limit=1)
-    group = groups[0]
-    zone_id = group.cloud_ids[0]
-    instance_type = live_client.instance_types.list(limit=1)[0]
-    pools = live_client.resource_pools.list(zone_id=zone_id, group_id=group.id)
+    ids: dict[str, int] = {}
+    for field, variable in {
+        "group": "MTN_CLOUD_TEST_GROUP_ID",
+        "zone": "MTN_CLOUD_TEST_ZONE_ID",
+        "resource_pool": "MTN_CLOUD_TEST_POOL_ID",
+        "plan": "MTN_CLOUD_TEST_PLAN_ID",
+        "layout": "MTN_CLOUD_TEST_LAYOUT_ID",
+        "network_id": "MTN_CLOUD_TEST_NETWORK_ID",
+    }.items():
+        raw = os.getenv(variable, "")
+        if not raw.isascii() or not raw.isdigit() or int(raw) <= 0:
+            pytest.fail(f"Set {variable} to a positive test resource ID before mutation")
+        ids[field] = int(raw)
+    type_code = os.getenv("MTN_CLOUD_TEST_INSTANCE_TYPE_CODE", "").strip()
+    if not type_code:
+        pytest.fail("Set MTN_CLOUD_TEST_INSTANCE_TYPE_CODE before mutation")
 
-    network = next(
-        network
-        for network in live_client.networks.list(zone_id=zone_id, limit=100)
-        if network.zone_pool and network.zone_pool.id == pools[0].id
-    )
-    plans = live_client.plans.list_for_provisioning(
-        zone_id=zone_id,
-        layout_id=instance_type.default_layout_id,
-        group_id=group.id,
-        resource_pool_id=pools[0].code,
-    )
-    plan = plans[0]
+    options = {
+        "type_code": type_code,
+        "root_volume_size_gb": 10,
+        **ids,
+    }
     name = f"sdk-live-contract-{int(time.time())}"
+    live_client.instances.provision(name, dry_run=True, **options)
+
     instance = None
     try:
-        instance = live_client.instances.provision(
-            name,
-            type_code=instance_type.code,
-            group=group.name or group.id,
-            plan=plan.name or plan.id,
-            resource_pool=pools[0].code,
-            network_id=network.id,
-            root_volume_size_gb=min(10, int(plan.storage_gb or 10)),
-            wait=False,
-        )
+        instance = live_client.instances.provision(name, wait=False, **options)
         instance = live_client.instances.wait_until_running(
             instance.id,
             timeout=1800,
@@ -145,6 +148,11 @@ def test_live_create_wait_delete(live_client: MtnCloudClient) -> None:
                 timeout=600,
                 poll_interval=15,
             )
+        else:
+            matches = [i for i in live_client.instances.list(name=name) if i.name == name]
+            for orphan in matches:
+                live_client.instances.delete(orphan.id, force=True)
+                live_client.instances.wait_until_deleted(orphan.id, timeout=600, poll_interval=15)
 
 
 def test_live_cli_inventory(

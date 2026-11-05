@@ -1,10 +1,11 @@
 """Focused, opt-in networking contract checks against a real tenant.
 
-These tests perform GET requests only. A failed connection or permission check
+Tests not marked ``mutation`` perform GET requests only. A failed connection or permission check
 is a failure, not a skip; empty tenant collections skip only detail checks.
 """
 
 import os
+import time
 from collections.abc import Iterator
 from typing import Any
 from uuid import uuid4
@@ -14,7 +15,7 @@ import pytest
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.models.network import NetworkCreate
 from mtn_cloud.models.router import RouterCreate
-from mtn_cloud.modern_exceptions import MtnCloudError
+from mtn_cloud.modern_exceptions import MtnCloudError, NotFoundError
 
 
 @pytest.fixture(scope="module")
@@ -177,3 +178,108 @@ def test_live_network_create_preflight(networking_client: MtnCloudClient) -> Non
             gateway="192.0.2.1",
         )
     )
+
+
+def _mutation_ids(variables: dict[str, str]) -> dict[str, int]:
+    ids: dict[str, int] = {}
+    for field, variable in variables.items():
+        raw = os.getenv(variable, "")
+        if not raw.isascii() or not raw.isdigit() or int(raw) <= 0:
+            pytest.fail(f"Set {variable} to a positive test resource ID before mutation")
+        ids[field] = int(raw)
+    return ids
+
+
+def _wait_until_absent(fetch: Any, timeout: float = 600, interval: float = 10) -> None:
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fetch()
+        except NotFoundError:
+            return
+        if time.monotonic() >= deadline:
+            pytest.fail("Resource still present after deletion timeout", pytrace=False)
+        time.sleep(interval)
+
+
+@pytest.mark.mutation
+def test_live_network_and_router_lifecycle() -> None:
+    """Create a throwaway network, attach a router to its subnet, then remove both.
+
+    Requires MTN_CLOUD_RUN_LIVE_TESTS=1 and MTN_CLOUD_ALLOW_MUTATIONS=1. The
+    CIDR defaults to 10.254.254.0/24; override MTN_CLOUD_TEST_NETWORK_CIDR if
+    that range is in use. Cleanup runs in reverse order even when a step fails,
+    and also looks the network up by its unique name in case creation timed out.
+    """
+    if os.getenv("MTN_CLOUD_RUN_LIVE_TESTS", "").strip().lower() not in {"1", "true", "yes"}:
+        pytest.skip("set MTN_CLOUD_RUN_LIVE_TESTS=1 to run live networking tests")
+    if os.getenv("MTN_CLOUD_ALLOW_MUTATIONS", "").strip().lower() not in {"1", "true", "yes"}:
+        pytest.skip("set MTN_CLOUD_ALLOW_MUTATIONS=1 to run network and router lifecycle tests")
+    ids = _mutation_ids(
+        {
+            "group_id": "MTN_CLOUD_TEST_GROUP_ID",
+            "cloud_id": "MTN_CLOUD_TEST_ZONE_ID",
+            "resource_pool_id": "MTN_CLOUD_TEST_POOL_ID",
+            "type_id": "MTN_CLOUD_TEST_NETWORK_TYPE_ID",
+        }
+    )
+    cidr = os.getenv("MTN_CLOUD_TEST_NETWORK_CIDR", "10.254.254.0/24")
+    gateway = cidr.rsplit(".", 1)[0] + ".1"
+    name = f"sdk-network-contract-{uuid4().hex[:12]}"
+
+    with MtnCloudClient(settings=ClientSettings(timeout=60, max_retries=2)) as client:
+        network_id: int | None = None
+        router_id: int | None = None
+        try:
+            network = client.networks.create(
+                NetworkCreate(
+                    name=name,
+                    group_id=ids["group_id"],
+                    cloud_id=ids["cloud_id"],
+                    resource_pool_id=ids["resource_pool_id"],
+                    type_id=ids["type_id"],
+                    cidr=cidr,
+                    gateway=gateway,
+                ),
+                validate=True,
+            )
+            network_id = network.id
+            assert network.name == name
+
+            subnets = []
+            deadline = time.monotonic() + 300
+            while not subnets and time.monotonic() < deadline:
+                subnets = client.networks.list_subnets(network_id)
+                if not subnets:
+                    time.sleep(10)
+            assert subnets, "Network creation produced no subnet within 300 seconds"
+
+            router = client.routers.create(
+                RouterCreate(
+                    name=f"sdk-router-contract-{uuid4().hex[:12]}",
+                    group_id=ids["group_id"],
+                    cloud_id=ids["cloud_id"],
+                    resource_pool_id=ids["resource_pool_id"],
+                    internal_subnet_ids=[subnets[0].id],
+                )
+            )
+            router_id = router.id
+            ready = client.routers.wait_until_ready(router_id, timeout=600)
+            assert ready.type is not None and ready.type.code == "neutronRouter"
+            assert any(i.subnet_id == subnets[0].id for i in ready.interfaces)
+        except MtnCloudError as exc:
+            if router_id is None:
+                candidate = (exc.response or {}).get("router_id")
+                if type(candidate) is int and candidate > 0:
+                    router_id = candidate
+            raise
+        finally:
+            if router_id is not None:
+                client.routers.delete(router_id)
+                client.routers.wait_until_deleted(router_id, timeout=600)
+            if network_id is None:
+                matches = [n for n in client.networks.list(name=name) if n.name == name]
+                network_id = matches[0].id if len(matches) == 1 else None
+            if network_id is not None:
+                client.networks.delete(network_id)
+                _wait_until_absent(lambda: client.networks.get(network_id))
