@@ -615,9 +615,11 @@ def test_instances_service_manages_snapshots() -> None:
     transport = Mock()
     transport.request.side_effect = [
         HttpResponse(200, {}, {"snapshots": [{"id": 80, "name": "before-upgrade"}]}),
-        HttpResponse(201, {}, {"snapshot": {"id": 81, "name": "after-upgrade"}}),
-        HttpResponse(202, {}, {}),
-        HttpResponse(204, {}, None),
+        HttpResponse(200, {}, {"success": True, "processIds": [9001]}),
+        HttpResponse(200, {}, {"snapshots": [{"id": 81}]}),
+        HttpResponse(200, {}, {"success": True}),
+        HttpResponse(200, {}, {"snapshots": [{"id": 81}]}),
+        HttpResponse(200, {}, {"success": True}),
     ]
     client = MtnCloudClient(token="secret", transport=transport)
 
@@ -627,7 +629,9 @@ def test_instances_service_manages_snapshots() -> None:
     assert client.instances.delete_snapshot(100, 81) is True
 
     assert snapshots[0].id == 80
-    assert created.name == "after-upgrade"
+    assert created.instance_id == 100 and created.process_ids == [9001]
+    assert transport.request.call_args_list[1].args == ("PUT", "/instances/100/snapshot")
+    assert transport.request.call_args_list[-1].args == ("DELETE", "/snapshots/81")
     assert transport.request.call_args_list[1].kwargs["json"] == {
         "snapshot": {"name": "after-upgrade"}
     }

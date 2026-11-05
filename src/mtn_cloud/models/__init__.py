@@ -50,7 +50,7 @@ from mtn_cloud.models.security_group import (
     SecurityGroupRuleUpdate,
     SecurityGroupUpdate,
 )
-from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
+from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate, SnapshotSubmission
 from mtn_cloud.models.storage_bucket import (
     StorageBucket,
     StorageBucketCreate,
@@ -134,6 +134,7 @@ __all__ = [
     # Snapshot
     "Snapshot",
     "SnapshotCreate",
+    "SnapshotSubmission",
     # Backup
     "Backup",
     "BackupJob",

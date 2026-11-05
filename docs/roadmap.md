@@ -238,7 +238,8 @@ Implemented in the current development line:
 - Modern network create, update, and delete operations
 - High-level floating-IP request support through instance external-network
   configuration
-- Modern instance snapshot operations
+- Modern instance snapshot operations (upstream contract correction implemented;
+  MTN live verification remains pending)
 - Modern backup configuration, job, execution, and result operations
 - Modern read-only block-storage volume discovery and attachment filtering
 - Storage-volume type and provider-option discovery
@@ -305,13 +306,19 @@ Progress: **read-only discovery and selection implemented; lifecycle pending**
   [virtual-image guide](virtual-images.md).
 - Shared pagination treats `meta.size` as page-local when `meta.total` is
   absent, avoiding truncated discovery across modern collection services.
+- Snapshot adapters now follow upstream asynchronous creation and global
+  detail/deletion contracts. Submission process IDs replace the previous
+  assumed snapshot return. Scoped lookup and restore/deletion membership checks,
+  explicit acknowledgements and compatible metadata models have mocked
+  regression coverage. GET-only live checks are prepared; MTN lifecycle and
+  completion tracking remain pending. See [snapshot guide](snapshots.md).
 
 Still to implement and verify:
 
 - Volumes and volume lifecycle
 - Instance volume attachment/detachment
 - Volume expansion
-- Snapshots and restore workflows
+- Live snapshot contract validation, completion tracking and tested restore workflows
 - Live verification of image discovery, metadata and origin-filter semantics
 - Image import/upload, deletion and provisioning compatibility
 - Backup jobs, schedules, retention, and restore

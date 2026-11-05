@@ -16,6 +16,7 @@ from mtn_cloud.services.plans import PlansService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
 from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
+from mtn_cloud.services.snapshots import SnapshotsService
 from mtn_cloud.services.storage_buckets import StorageBucketsService
 from mtn_cloud.services.virtual_images import VirtualImagesService
 from mtn_cloud.services.volumes import VolumesService
@@ -68,6 +69,7 @@ class MtnCloudClient:
         self._storage_buckets: StorageBucketsService | None = None
         self._apps: ApplicationsService | None = None
         self._virtual_images: VirtualImagesService | None = None
+        self._snapshots: SnapshotsService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -197,6 +199,13 @@ class MtnCloudClient:
         if self._virtual_images is None:
             self._virtual_images = VirtualImagesService(self._core)
         return self._virtual_images
+
+    @property
+    def snapshots(self) -> SnapshotsService:
+        """Access snapshot details and deletion by global ID (live verification pending)."""
+        if self._snapshots is None:
+            self._snapshots = SnapshotsService(self._core)
+        return self._snapshots
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

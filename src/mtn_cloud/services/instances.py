@@ -1,8 +1,10 @@
 """Modern service for MTN Cloud compute instances."""
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, List, cast
+
+from pydantic import ValidationError as ModelValidationError
 
 from mtn_cloud.core import CoreClient
 from mtn_cloud.models.cloud import Cloud
@@ -16,7 +18,7 @@ from mtn_cloud.models.instance import (
 )
 from mtn_cloud.models.instance_type import InstanceType
 from mtn_cloud.models.plan import ServicePlan
-from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate
+from mtn_cloud.models.snapshot import Snapshot, SnapshotCreate, SnapshotSubmission
 from mtn_cloud.modern_exceptions import (
     AmbiguousLookupError,
     LookupNotFoundError,
@@ -29,6 +31,11 @@ from mtn_cloud.services.instance_types import InstanceTypesService
 from mtn_cloud.services.networks import NetworksService
 from mtn_cloud.services.plans import PlansService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
+from mtn_cloud.services.snapshots import (
+    SnapshotsService,
+    require_snapshot_success,
+    validate_snapshot_id,
+)
 from mtn_cloud.services.zones import ZonesService
 
 
@@ -211,40 +218,91 @@ class InstancesService(Service[Instance]):
         )
 
     def list_snapshots(self, instance_id: int) -> List[Snapshot]:
-        """List snapshots belonging to an instance."""
+        """Read an instance's snapshot collection; upstream defines no paging."""
 
-        body = self._core.request("GET", f"{self.path}/{instance_id}/snapshots")
-        if not isinstance(body, dict) or not isinstance(body.get("snapshots"), list):
-            raise MtnCloudError("Invalid snapshot response: expected a 'snapshots' list")
-        return [Snapshot.model_validate(item) for item in body["snapshots"]]
+        validate_snapshot_id(instance_id, "instance_id")
+        path = f"{self.path}/{instance_id}/snapshots"
+        body = self._core.request("GET", path)
+        if (
+            not isinstance(body, dict)
+            or body.get("success") is False
+            or not isinstance(body.get("snapshots"), list)
+        ):
+            raise MtnCloudError("Invalid snapshot collection response", method="GET", path=path)
+        if any(
+            not isinstance(item, dict) or type(item.get("id")) is not int or item["id"] <= 0
+            for item in body["snapshots"]
+        ):
+            raise MtnCloudError("Invalid snapshot identifier", method="GET", path=path)
+        snapshots = [Snapshot.model_validate(item) for item in body["snapshots"]]
+        for snapshot in snapshots:
+            parent = snapshot.instance
+            if isinstance(parent, Mapping) and "id" in parent:
+                if type(parent["id"]) is not int or parent["id"] != instance_id:
+                    raise MtnCloudError(
+                        "Snapshot references a different parent instance", method="GET", path=path
+                    )
+        return snapshots
+
+    def get_snapshot(self, instance_id: int, snapshot_id: int) -> Snapshot:
+        """Find one snapshot ID in the instance-scoped collection."""
+        validate_snapshot_id(instance_id, "instance_id")
+        validate_snapshot_id(snapshot_id, "snapshot_id")
+        matches = [item for item in self.list_snapshots(instance_id) if item.id == snapshot_id]
+        if not matches:
+            raise LookupNotFoundError("Snapshot was not found in the instance collection")
+        if len(matches) > 1:
+            raise AmbiguousLookupError("Snapshot ID is repeated in the instance collection")
+        return matches[0]
+
+    def get_snapshot_by_name(self, instance_id: int, name: str) -> Snapshot:
+        """Require one exact name in an instance's snapshot collection."""
+        matches = [item for item in self.list_snapshots(instance_id) if item.name == name]
+        if not matches:
+            raise LookupNotFoundError("Snapshot name was not found in the instance collection")
+        if len(matches) > 1:
+            raise AmbiguousLookupError("Snapshot name is ambiguous in the instance collection")
+        return matches[0]
 
     def create_snapshot(
         self,
         instance_id: int,
         request: SnapshotCreate,
-    ) -> Snapshot:
-        """Create an instance snapshot."""
+    ) -> SnapshotSubmission:
+        """Submit asynchronous creation and return process IDs, not a snapshot ID."""
 
+        validate_snapshot_id(instance_id, "instance_id")
+        path = f"{self.path}/{instance_id}/snapshot"
         body = self._core.request(
-            "POST",
-            f"{self.path}/{instance_id}/snapshots",
+            "PUT",
+            path,
             json=request.to_api_payload(),
         )
-        if not isinstance(body, dict):
-            raise MtnCloudError("Invalid snapshot response")
-        return Snapshot.model_validate(body.get("snapshot", body))
+        require_snapshot_success(body, method="PUT", path=path)
+        try:
+            return SnapshotSubmission(instance_id=instance_id, process_ids=body.get("processIds"))
+        except ModelValidationError as exc:
+            raise MtnCloudError(
+                "Invalid snapshot submission response; inspect the instance before resubmitting",
+                method="PUT",
+                path=path,
+                response={"instance_id": instance_id},
+            ) from exc
 
     def revert_snapshot(self, instance_id: int, snapshot_id: int) -> bool:
-        """Request restoration of an instance snapshot."""
+        """Check instance membership and submit a restore; True is acknowledgement."""
 
-        self._core.request("PUT", f"{self.path}/{instance_id}/revert-snapshot/{snapshot_id}")
+        self.get_snapshot(instance_id, snapshot_id)
+        path = f"{self.path}/{instance_id}/revert-snapshot/{snapshot_id}"
+        body = self._core.request("PUT", path)
+        require_snapshot_success(body, method="PUT", path=path)
         return True
 
     def delete_snapshot(self, instance_id: int, snapshot_id: int) -> bool:
-        """Delete an instance snapshot."""
+        """Check instance membership and request snapshot deletion."""
 
-        self._core.request("DELETE", f"{self.path}/{instance_id}/snapshots/{snapshot_id}")
-        return True
+        self.get_snapshot(instance_id, snapshot_id)
+        return SnapshotsService(self._core).delete(snapshot_id)
 
     def provision(
         self,

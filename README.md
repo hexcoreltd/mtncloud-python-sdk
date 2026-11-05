@@ -162,6 +162,7 @@ The current modern service surface is:
 | `cloud.routers` | Discover external gateways and manage MTN routers |
 | `cloud.security_groups` | Manage security groups and firewall rules |
 | `cloud.backups` | Inspect backup configurations, jobs, and results |
+| `cloud.snapshots` | Retrieve/delete snapshots by global ID (MTN live verification pending) |
 | `cloud.volumes` | Discover block-storage volumes, attachments, and volume types |
 | `cloud.virtual_images` | Discover image metadata with pagination and exact-name lookup (live verification pending) |
 | `cloud.storage_buckets` | Manage S3-compatible storage-provider configurations |
@@ -180,6 +181,11 @@ Virtual-image discovery uses the legacy endpoint and upstream reference;
 MTN-specific live validation remains pending. See the
 [virtual-image guide](docs/virtual-images.md) for filters, metadata handling
 and prepared read-only contract checks.
+
+Snapshot creation now returns `SnapshotSubmission` with process IDs rather
+than a snapshot resource. Instance-scoped restore/deletion checks collection
+membership before writing. See the [snapshot migration guide](docs/snapshots.md)
+for the corrected paths, return-type change and pending MTN verification.
 
 ### Validate network creation
 

@@ -10,6 +10,11 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Typed asynchronous `SnapshotSubmission`, global snapshot detail/deletion
+  service, instance-scoped ID/name lookup, upstream metadata fields and guarded
+  GET-only contract checks. Added a read-only example and migration guide.
+  MTN live verification and recovery completion tracking remain pending.
+
 - Composite GitHub Action for read-only inventory and dry-run planning, with
   locked CLI dependencies, SHA-pinned setup actions, credential masking,
   a GET-only transport guard, projected JSON results and job summaries.
@@ -106,6 +111,13 @@ would normally require a major release in a mature stable SDK.
 - Modern read-only provisioned-application discovery at `/apps`.
 
 ### Changed
+
+- **Breaking:** modern `instances.create_snapshot` uses the documented
+  asynchronous PUT and returns process IDs in `SnapshotSubmission`, replacing
+  the previous POST/`Snapshot` assumption. Snapshot deletion uses `/snapshots/{id}`;
+  scoped restore/deletion checks instance collection membership first. Writes
+  require explicit acknowledgement and remain single-attempt. Legacy resource
+  managers retain their existing API; see `docs/snapshots.md` for migration.
 
 - Provisioning dependency group/zone name and instance-type name/code lookups
   traverse all pages. Duplicate named layouts and ambiguous type/plan/pool/zone

@@ -2,6 +2,19 @@
 
 The live tests use credentials from `.env` through `ClientSettings`.
 
+## Snapshot discovery (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 MTN_CLOUD_TEST_INSTANCE_ID=100 \
+  uv run pytest tests/integration/test_live_snapshots.py -q -x --tb=short
+```
+
+Use an existing instance ID and optionally `MTN_CLOUD_TEST_SNAPSHOT_NAME` for
+name lookup. These checks inspect collections and global details using GET
+requests only. Missing configuration or data skips affected checks. No create,
+restore or delete runs; upstream contract corrections and the creation return
+type migration are described in the [snapshot guide](snapshots.md).
+
 ## CLI instance planning (pending live verification)
 
 ```bash
