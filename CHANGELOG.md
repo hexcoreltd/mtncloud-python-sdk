@@ -10,6 +10,8 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Rewritten runnable examples for the modern SDK, safe provisioning workflows,
+  storage configuration, router management, and CLI inventory usage.
 - Read-only `mtncloud` CLI (`[cli]` extra) with `instances`, `networks`, `routers`
   `list`/`describe`, `inventory`, and `version`; versioned JSON output and documented
   exit codes.

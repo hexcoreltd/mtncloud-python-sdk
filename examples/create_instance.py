@@ -1,62 +1,56 @@
-"""
-MTN Cloud SDK - Create Instance Example
-=======================================
+"""Resolve and optionally provision an instance with the modern SDK.
 
-Discover the IDs an instance needs (all permission-safe), then provision.
+The default mode is a dry run. Use ``--apply`` only when you intend to create
+an instance and wait for it to become ready::
 
-Run with:
     export MTN_CLOUD_TOKEN="your-token"
-    python examples/create_instance.py
+    uv run python examples/create_instance.py --group Production \
+        --type-code MTN-CS10 --plan G1S1
+    uv run python examples/create_instance.py --group Production \
+        --type-code MTN-CS10 --plan G1S1 --apply
 """
 
-from mtn_cloud import MTNCloud
+from __future__ import annotations
+
+import argparse
+
+from mtn_cloud import MtnCloudClient, MtnCloudError
 
 
 def main() -> None:
-    cloud = MTNCloud()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--name", default="sdk-example-01")
+    parser.add_argument("--group", required=True, help="Group name or numeric ID.")
+    parser.add_argument("--type-code", required=True, help="Instance type code.")
+    parser.add_argument("--plan", required=True, help="Plan name, code, or ID.")
+    parser.add_argument("--zone", help="Optional zone name or numeric ID.")
+    parser.add_argument("--resource-pool", help="Optional pool name, code, or ID.")
+    parser.add_argument("--network-id", help="Optional private network ID.")
+    parser.add_argument("--apply", action="store_true", help="Actually create the instance.")
+    args = parser.parse_args()
 
-    print("MTN Cloud - Create Instance Example")
-    print("=" * 50)
-
-    # 1. Discover provisioning inputs.
-    group = cloud.groups.get_by_name("MTNNG_CLOUD_AZ_1")
-    itype = cloud.instance_types.get_by_code("MTN-CS10")
-    pools = cloud.instances.list_resource_pools(group=group.name)
-    if not pools:
-        print("No resource pool available. Create a project first.")
-        return
-    plans = cloud.instances.list_service_plans(
-        zone_id=group.cloud_ids[0],
-        layout_id=itype.default_layout_id,
-        group_id=group.id,
-        resource_pool_id=pools[0].code,
-    )
-
-    print(f"group={group.id} cloud_id={group.cloud_ids[0]} layout={itype.default_layout_id}")
-    print("pools:", [(p.code, p.name) for p in pools[:3]])
-    print("plans:", [(p["id"], p["name"]) for p in plans[:3]])
-
-    if not pools or not plans:
-        print("\nNo resource pool or service plan available. Create a project first.")
-        return
-
-    # 2. Provision. Uncomment to actually create an instance.
-    # instance = cloud.instances.create(
-    #     name="sdk-demo-01",
-    #     cloud=group.name,
-    #     type=itype.code,
-    #     group=group.name,
-    #     layout=itype.default_layout_id,
-    #     plan=plans[0]["id"],
-    #     resource_pool_id=pools[0].code,
-    #     availability_zone="Lagos-AZ-1-fd1",
-    #     security_group="default",
-    #     labels=["demo", "sdk-example"],
-    # )
-    # instance = cloud.instances.wait_until_running(instance.id, timeout=600)
-    # print(f"ready: {instance.id} {instance.name} {instance.primary_ip}")
-
-    print("\nDone. Uncomment the create block to provision for real.")
+    try:
+        with MtnCloudClient() as cloud:
+            result = cloud.instances.provision(
+                args.name,
+                type_code=args.type_code,
+                group=args.group,
+                plan=args.plan,
+                zone=args.zone,
+                resource_pool=args.resource_pool,
+                network_id=args.network_id,
+                dry_run=not args.apply,
+                wait=args.apply,
+            )
+            if isinstance(result, dict):
+                print("Dry-run resolution:")
+                for key, value in result.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"Instance ready: {result.id} ({result.name})")
+                print(f"Status: {result.status}; primary IP: {result.primary_ip or 'none'}")
+    except (ValueError, MtnCloudError) as exc:
+        raise SystemExit(f"Provisioning failed: {exc}") from exc
 
 
 if __name__ == "__main__":

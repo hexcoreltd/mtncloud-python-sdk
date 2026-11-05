@@ -166,6 +166,10 @@ The current modern service surface is:
 | `cloud.storage_buckets` | Manage S3-compatible storage-provider configurations |
 | `cloud.apps` | Discover provisioned applications and catalog deployments |
 
+Runnable examples are available in [`examples/`](examples/), with a guide in
+[`examples/README.md`](examples/README.md). Mutating examples default to safe
+resolution or require an explicit `--apply` flag.
+
 Some MTN Cloud endpoints are permission-scoped. A valid credential may be
 able to access tenant-scoped endpoints while receiving `403 Forbidden` from
 broader catalog endpoints. The SDK surfaces these responses as typed errors;

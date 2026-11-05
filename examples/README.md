@@ -1,0 +1,28 @@
+# Examples
+
+These examples target the modern `MtnCloudClient` API and are intended to be
+run from the repository root with `uv`:
+
+```bash
+uv sync --locked --extra dev
+uv run python examples/basic_usage.py
+```
+
+Available examples:
+
+- `basic_usage.py` — authenticated, read-only resource discovery.
+- `create_instance.py` — safe provisioning resolution with dry-run as the
+  default; pass `--apply` to create an instance.
+- `create_router.py` — explicit router creation with optional cleanup through
+  `--delete-after`.
+- `list_storage_buckets.py` — storage configuration and unattached-volume
+  discovery without printing credentials.
+- `storage_bucket_config.py` — create an S3-compatible control-plane bucket
+  configuration; object data-plane operations require a separate S3 client.
+- `cli_inventory.py` — invoke the read-only `mtncloud inventory` command from
+  Python.
+
+All examples read credentials from environment variables and avoid committing
+secrets. Mutating examples require an explicit flag. Confirm resource IDs,
+permissions, costs, and cleanup behavior before running them against a live
+tenant.
