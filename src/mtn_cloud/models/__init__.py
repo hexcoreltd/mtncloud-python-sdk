@@ -40,6 +40,7 @@ from mtn_cloud.models.network import (
     Subnet,
 )
 from mtn_cloud.models.plan import ServicePlan
+from mtn_cloud.models.process import Process, ProcessEvent
 from mtn_cloud.models.resource_pool import ResourcePool
 from mtn_cloud.models.router import ExternalNetwork, Router, RouterCreate, RouterInterface
 from mtn_cloud.models.security_group import (
@@ -119,6 +120,8 @@ __all__ = [
     "ArchiveBucketVisibility",
     # Plan
     "ServicePlan",
+    "Process",
+    "ProcessEvent",
     # User
     "User",
     "UserRole",

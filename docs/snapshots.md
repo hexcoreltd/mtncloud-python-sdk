@@ -65,7 +65,9 @@ process-ID data raises an SDK error with the instance ID in
 `error.response["instance_id"]`. Inspect the instance before resubmitting;
 an invalid response does not establish that the mutation failed. The SDK
 does not automatically retry submissions or poll guessed completion states.
-Process tracking and verified snapshot-completion waiters remain pending.
+Read-only process inspection and caller-configured status polling are now
+available through `cloud.processes`; see the [process guide](processes.md).
+MTN status semantics and verified snapshot-completion policies remain pending.
 
 `SnapshotCreate` retains name/description and adds optional `memory_snapshot`
 and `for_export` flags. Explicit false values are preserved. Provider support

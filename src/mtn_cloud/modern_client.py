@@ -13,6 +13,7 @@ from mtn_cloud.services.instance_types import InstanceTypesService
 from mtn_cloud.services.instances import InstancesService
 from mtn_cloud.services.networks import NetworksService
 from mtn_cloud.services.plans import PlansService
+from mtn_cloud.services.processes import ProcessesService
 from mtn_cloud.services.resource_pools import ResourcePoolsService
 from mtn_cloud.services.routers import RoutersService
 from mtn_cloud.services.security_groups import SecurityGroupsService
@@ -70,6 +71,7 @@ class MtnCloudClient:
         self._apps: ApplicationsService | None = None
         self._virtual_images: VirtualImagesService | None = None
         self._snapshots: SnapshotsService | None = None
+        self._processes: ProcessesService | None = None
 
     @property
     def settings(self) -> ClientSettings:
@@ -206,6 +208,13 @@ class MtnCloudClient:
         if self._snapshots is None:
             self._snapshots = SnapshotsService(self._core)
         return self._snapshots
+
+    @property
+    def processes(self) -> ProcessesService:
+        """Access read-only process history and explicitly configured status polling."""
+        if self._processes is None:
+            self._processes = ProcessesService(self._core, sleeper=self._sleeper, clock=self._clock)
+        return self._processes
 
     def whoami(self) -> User:
         """Return the authenticated control-plane user."""

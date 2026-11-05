@@ -2,6 +2,20 @@
 
 The live tests use credentials from `.env` through `ClientSettings`.
 
+## Process history (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_processes.py -q -x --tb=short
+```
+
+Set `MTN_CLOUD_TEST_PROCESS_ID` for detail lookup and optionally
+`MTN_CLOUD_TEST_INSTANCE_ID` for binding/filter checks. The suite performs GET
+requests only, without assuming a terminal status or invoking process actions.
+Missing selectors or insufficient data skip affected checks. History page
+metadata is inspected without undocumented paging queries; see the
+[process guide](processes.md).
+
 ## Snapshot discovery (pending live verification)
 
 ```bash

@@ -15,6 +15,8 @@ Available examples:
   name, format and origin filters, without printing user-data or provider details.
 - `list_snapshots.py` — read-only instance snapshot inventory using an explicit
   instance ID; prints selected metadata without file/provider details.
+- `process_history.py` — inspect existing process IDs or instance history, with
+  optional polling for an explicit status, without printing process logs.
 - `create_instance.py` — safe provisioning resolution with dry-run as the
   default; pass `--apply` to create an instance.
 - `create_router.py` — explicit router creation with optional cleanup through

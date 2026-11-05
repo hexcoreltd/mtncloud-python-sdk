@@ -311,14 +311,19 @@ Progress: **read-only discovery and selection implemented; lifecycle pending**
   assumed snapshot return. Scoped lookup and restore/deletion membership checks,
   explicit acknowledgements and compatible metadata models have mocked
   regression coverage. GET-only live checks are prepared; MTN lifecycle and
-  completion tracking remain pending. See [snapshot guide](snapshots.md).
+  verified snapshot completion policies remain pending. See [snapshot guide](snapshots.md).
+- Process detail/history and caller-configured status polling now support
+  inspecting snapshot submission IDs, with instance/event parent checks and
+  no implicit status mapping. Mocked regressions and GET-only live checks are
+  prepared; MTN semantics, permissions and recovery validation remain pending.
+  See [process guide](processes.md).
 
 Still to implement and verify:
 
 - Volumes and volume lifecycle
 - Instance volume attachment/detachment
 - Volume expansion
-- Live snapshot contract validation, completion tracking and tested restore workflows
+- Live snapshot/process validation, verified completion policies and tested restore workflows
 - Live verification of image discovery, metadata and origin-filter semantics
 - Image import/upload, deletion and provisioning compatibility
 - Backup jobs, schedules, retention, and restore
@@ -438,11 +443,17 @@ readiness, notification delivery and wider observability remain pending.
 See [monitor deployment guide](control-plane-monitor.md). Mocked regression
 coverage is complete; the healthy MTN `/ping` body contract remains unverified.
 
+Read-only process history/detail and explicit status polling are implemented
+with typed event records, identity checks and representation-safe log fields.
+History returns the provider-selected page only; paging query contracts and
+MTN status semantics remain unverified. Mocked regressions pass and guarded
+live reads are prepared. See [process guide](processes.md).
+
 - Instance and database metrics
 - Logs and log destinations
 - Health and availability checks
 - Alerts and notification targets
-- Operation history
+- Operation history export and wider event integrations
 - Polling and event hooks
 - Resource inventory export
 - Change and audit evidence export

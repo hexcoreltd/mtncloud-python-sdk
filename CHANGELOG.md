@@ -10,6 +10,12 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Read-only `cloud.processes` history/detail discovery, typed process/event
+  models, identity and parent checks, and caller-configured status polling.
+  History retains provider page metadata without undocumented paging controls;
+  status matching does not infer snapshot readiness. Added a safe example and
+  guarded GET-only live checks. MTN validation remains pending.
+
 - Typed asynchronous `SnapshotSubmission`, global snapshot detail/deletion
   service, instance-scoped ID/name lookup, upstream metadata fields and guarded
   GET-only contract checks. Added a read-only example and migration guide.

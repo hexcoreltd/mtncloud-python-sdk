@@ -163,6 +163,7 @@ The current modern service surface is:
 | `cloud.security_groups` | Manage security groups and firewall rules |
 | `cloud.backups` | Inspect backup configurations, jobs, and results |
 | `cloud.snapshots` | Retrieve/delete snapshots by global ID (MTN live verification pending) |
+| `cloud.processes` | Inspect operation history/detail and poll for caller-selected statuses (MTN live verification pending) |
 | `cloud.volumes` | Discover block-storage volumes, attachments, and volume types |
 | `cloud.virtual_images` | Discover image metadata with pagination and exact-name lookup (live verification pending) |
 | `cloud.storage_buckets` | Manage S3-compatible storage-provider configurations |
@@ -186,6 +187,11 @@ Snapshot creation now returns `SnapshotSubmission` with process IDs rather
 than a snapshot resource. Instance-scoped restore/deletion checks collection
 membership before writing. See the [snapshot migration guide](docs/snapshots.md)
 for the corrected paths, return-type change and pending MTN verification.
+
+Use `cloud.processes.get(process_id, instance_id=...)` to inspect submitted
+operation IDs. History is a provider-selected page; status polling requires
+caller-selected labels and does not infer snapshot readiness. See the
+[process guide](docs/processes.md) for scope checks, timing and live-test status.
 
 ### Validate network creation
 
