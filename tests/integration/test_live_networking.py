@@ -266,7 +266,12 @@ def test_live_network_and_router_lifecycle() -> None:
             router_id = router.id
             ready = client.routers.wait_until_ready(router_id, timeout=600)
             assert ready.type is not None and ready.type.code == "neutronRouter"
-            assert any(i.subnet_id == subnets[0].id for i in ready.interfaces)
+            # MTN router interfaces reference the network and CIDR, not the
+            # subnet (observed 2026-11-05), so match on those.
+            assert any(
+                i.network is not None and i.network.id == network_id and i.cidr == cidr
+                for i in ready.interfaces
+            ), "Router lacks an interface on the test network"
         except MtnCloudError as exc:
             if router_id is None:
                 candidate = (exc.response or {}).get("router_id")
