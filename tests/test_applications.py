@@ -57,7 +57,7 @@ def test_application_name_requires_exact_unique_match(
         client.apps.get_by_name("ledger")
 
 
-def test_repeated_page_ids_fail_before_a_third_request(
+def test_a_page_with_no_new_ids_ends_pagination_before_a_third_request(
     client: MtnCloudClient, transport: Mock
 ) -> None:
     transport.request.side_effect = [
@@ -65,20 +65,22 @@ def test_repeated_page_ids_fail_before_a_third_request(
         page([{"id": 1}]),
         AssertionError("pagination must stop"),
     ]
-    with pytest.raises(MtnCloudError, match="repeated resource IDs") as raised:
-        client.apps.list_all(page_size=1)
-    assert raised.value.path == "/apps"
-    assert raised.value.method == "GET"
+    apps = client.apps.list_all(page_size=1)
+    assert [app.id for app in apps] == [1]
     assert transport.request.call_count == 2
 
 
-def test_partially_overlapping_pages_are_rejected(client: MtnCloudClient, transport: Mock) -> None:
+def test_partially_overlapping_pages_are_deduplicated(
+    client: MtnCloudClient, transport: Mock
+) -> None:
     transport.request.side_effect = [
         page([{"id": 1}, {"id": 2}], total=4),
         page([{"id": 2}, {"id": 3}], total=4),
+        AssertionError("offset reached the reported total"),
     ]
-    with pytest.raises(MtnCloudError, match="repeated resource IDs"):
-        client.apps.list_all(page_size=2)
+    apps = client.apps.list_all(page_size=2)
+    assert [app.id for app in apps] == [1, 2, 3]
+    assert transport.request.call_count == 2
 
 
 def test_reported_offset_mismatch_is_rejected(client: MtnCloudClient, transport: Mock) -> None:

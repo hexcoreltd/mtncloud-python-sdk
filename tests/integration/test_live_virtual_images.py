@@ -30,10 +30,14 @@ def test_live_image_pagination(authenticated_client: MtnCloudClient) -> None:
     first = authenticated_client.virtual_images.list_page(limit=1)
     if not first.items or first.total is None or first.total < 2:
         pytest.skip("At least two images and total metadata are needed to verify pagination")
-    second = authenticated_client.virtual_images.list_page(limit=1, offset=1)
-    if not second.items:
-        pytest.fail("Second image page is empty despite total metadata", pytrace=False)
-    assert first.items[0].id != second.items[0].id
+    # MTN Cloud can over-report `total` and repeat an image at a later offset
+    # (observed 2026-11-05), so assert the adapter's guarantee, not distinct pages.
+    images = authenticated_client.virtual_images.list_all(page_size=1)
+    ids = [image.id for image in images]
+    assert ids, "Paged traversal returned no images despite total metadata"
+    assert len(ids) == len(set(ids))
+    assert len(ids) <= first.total
+    assert first.items[0].id in ids
 
 
 def test_live_image_exact_name(authenticated_client: MtnCloudClient) -> None:

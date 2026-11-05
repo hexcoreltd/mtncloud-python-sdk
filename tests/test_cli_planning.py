@@ -296,10 +296,13 @@ def test_provider_failures_preserve_exit_code_and_metadata_without_payload(
 def test_ambiguous_selections_fail_with_exit_five(
     area: str, catalog: dict[str, Any], transport: Mock, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # A real ambiguity is two resources with one name, so duplicates get new IDs.
     if area == "group":
-        catalog["/groups"]["groups"] *= 2
+        groups = catalog["/groups"]["groups"]
+        groups.append({**groups[0], "id": groups[0]["id"] + 1000})
     elif area == "type":
-        catalog["/instance-types"]["instanceTypes"] *= 2
+        types = catalog["/instance-types"]["instanceTypes"]
+        types.append({**types[0], "id": types[0]["id"] + 1000})
     elif area == "plan":
         catalog["/instances/service-plans"]["plans"] *= 2
     else:
