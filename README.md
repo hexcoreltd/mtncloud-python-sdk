@@ -386,6 +386,31 @@ resolved fails the whole command.
 Closing a pipe early, for example `mtncloud instances list | head`, exits 0
 quietly.
 
+## Block-storage discovery and selection
+
+```python
+from mtn_cloud import MtnCloudClient
+
+with MtnCloudClient() as cloud:
+    volume = cloud.volumes.get_by_name("app-data", zone_id=4)
+    print(volume.id, volume.attachment_state, volume.is_available)
+    unattached = cloud.volumes.list_unattached(zone_id=4)
+```
+
+Name lookup and attached/unattached selection follow all collection pages.
+Duplicate exact names raise `AmbiguousLookupError`; ordinary `list()` still
+returns one page. Attachment state is `attached` when an instance ID is
+reported, `unattached` for an explicit null `instanceId`, and `unknown` when
+that field is omitted. Unknown volumes are excluded from `list_unattached()`.
+
+`is_available` is a hint requiring explicit unattached evidence and an
+`available`, `provisioned`, or `ready` status. Missing status returns False.
+It does not reserve the volume or establish provider-side attachability.
+`is_attached == False` alone is insufficient to select a volume. When storing
+models for later reconstruction, use `model_dump(exclude_unset=True)` to
+preserve the difference between omitted fields and explicit null values.
+Volume mutation operations and live verification remain pending.
+
 ## Control-plane availability monitor
 
 Run the standalone monitor from an external host to observe console HTTP

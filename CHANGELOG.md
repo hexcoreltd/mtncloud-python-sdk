@@ -10,6 +10,9 @@ would normally require a major release in a mature stable SDK.
 
 ### Added
 
+- Explicit volume `attachment_state` and `is_unattached` helpers, plus opt-in
+  read-only live block-storage contract tests (live verification pending).
+
 - Standalone external control-plane HTTP monitor with JSON records, timeout
   handling, unauthenticated probes, and failure/recovery events in watch mode.
 
@@ -61,6 +64,12 @@ would normally require a major release in a mature stable SDK.
 - Modern read-only provisioned-application discovery at `/apps`.
 
 ### Changed
+
+- Volume name lookup and attached/unattached selection now traverse all pages;
+  duplicate volume names raise `AmbiguousLookupError` (also a `ValueError`).
+- `list_unattached()` excludes volumes with omitted `instanceId` metadata.
+  `is_available` requires explicit unattached evidence and a recognized status;
+  missing attachment or status metadata no longer implies availability.
 
 - Name-based lookups (`networks.get_subnet`, `networks.get_subnet_by_name`,
   `networks.get_pool_ip`, `volumes.get_by_name`, `routers.get_interface`, and

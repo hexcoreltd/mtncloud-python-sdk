@@ -64,3 +64,17 @@ If any ID is absent, this specific test skips; invalid supplied IDs fail.
 MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
   tests/integration/test_live_networking.py -q -k preflight
 ```
+
+## Block-storage discovery (pending live verification)
+
+```bash
+MTN_CLOUD_RUN_LIVE_TESTS=1 uv run pytest \
+  tests/integration/test_live_block_storage.py -q -x --tb=short
+```
+
+This suite uses existing volumes only: it checks collection/detail envelopes,
+`instanceId` attachment evidence, and volume-type retrieval. No resources are
+created or modified. Authentication/permission/transport errors fail the run.
+Empty collections skip item checks; a detail response without `instanceId`
+skips ownership verification while asserting the SDK classifies it as unknown.
+No fixture or lifecycle contract should be marked verified from those skips.

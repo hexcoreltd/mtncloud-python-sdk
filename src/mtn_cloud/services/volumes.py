@@ -3,7 +3,7 @@
 from typing import Any, List
 
 from mtn_cloud.models.volume import StorageVolume, StorageVolumeType
-from mtn_cloud.modern_exceptions import LookupNotFoundError, MtnCloudError
+from mtn_cloud.modern_exceptions import AmbiguousLookupError, LookupNotFoundError, MtnCloudError
 from mtn_cloud.services.base import Page, Service
 
 
@@ -44,15 +44,16 @@ class VolumesService(Service[StorageVolume]):
         return self._get(volume_id)
 
     def get_by_name(self, name: str, *, zone_id: int | None = None) -> StorageVolume:
-        """Return a uniquely named volume, optionally scoped to a zone."""
+        """Find an exact name across every page, optionally scoped to a zone."""
 
         matches = [
-            volume for volume in self.list(phrase=name, zone_id=zone_id) if volume.name == name
+            volume for volume in self.list_all(phrase=name, zone_id=zone_id) if volume.name == name
         ]
         if not matches:
             raise LookupNotFoundError(f"Storage volume '{name}' was not found")
         if len(matches) > 1:
-            raise ValueError(f"Storage volume name '{name}' is ambiguous")
+            ids = sorted(volume.id for volume in matches)
+            raise AmbiguousLookupError(f"Storage volume name '{name}' is ambiguous: ids {ids}")
         return matches[0]
 
     def list_types(
@@ -85,11 +86,15 @@ class VolumesService(Service[StorageVolume]):
         return StorageVolumeType.model_validate(body.get("storageVolumeType", body))
 
     def list_attached(self, instance_id: int) -> List[StorageVolume]:
-        """List volumes attached to one instance."""
+        """List all pages of volumes filtered by an instance ID."""
 
-        return self.list(instance_id=instance_id)
+        return self.list_all(instance_id=instance_id)
 
     def list_unattached(self, *, zone_id: int | None = None) -> List[StorageVolume]:
-        """List volumes that are not currently attached to an instance."""
+        """List all volumes explicitly reporting no instance ID.
 
-        return [volume for volume in self.list(zone_id=zone_id) if not volume.is_attached]
+        Volumes with omitted attachment data are excluded. Unattached does not
+        imply ready for use; inspect status and the ``is_available`` hint too.
+        """
+
+        return [volume for volume in self.list_all(zone_id=zone_id) if volume.is_unattached]

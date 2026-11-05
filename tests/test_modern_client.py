@@ -678,6 +678,7 @@ def test_volumes_service_discovers_and_filters_attached_volumes() -> None:
     assert attached[0].is_attached is True
     assert volume.status == "provisioned"
     assert transport.request.call_args_list[0].kwargs["params"] == {
+        "max": 100,
         "offset": 0,
         "instanceId": 4737,
     }
@@ -699,7 +700,11 @@ def test_volumes_service_resolves_names_and_unattached_volumes() -> None:
         HttpResponse(
             200,
             {},
-            {"storageVolumes": [{"id": 9450, "name": "root", "status": "provisioned"}]},
+            {
+                "storageVolumes": [
+                    {"id": 9450, "name": "root", "status": "provisioned", "instanceId": None}
+                ]
+            },
         ),
     ]
     client = MtnCloudClient(token="secret", transport=transport)

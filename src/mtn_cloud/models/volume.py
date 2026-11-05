@@ -1,6 +1,6 @@
 """Models for MTN Cloud storage volumes."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -38,15 +38,30 @@ class StorageVolume(Resource):
 
     @property
     def is_attached(self) -> bool:
-        """Check if volume is attached to an instance."""
+        """Return whether an instance ID is reported; False may mean unknown."""
         return self.instance_id is not None
 
     @property
-    def is_available(self) -> bool:
-        """Return whether the volume appears available for attachment."""
+    def attachment_state(self) -> Literal["attached", "unattached", "unknown"]:
+        """Distinguish an explicit null instance ID from an omitted field.
 
-        return not self.is_attached and (self.status or "").lower() in {
-            "",
+        This describes only the current response's ``instanceId`` evidence;
+        it is not a provider-side guarantee that attachment is possible.
+        """
+        if self.instance_id is not None:
+            return "attached"
+        return "unattached" if "instance_id" in self.model_fields_set else "unknown"
+
+    @property
+    def is_unattached(self) -> bool:
+        """Return True only when the response explicitly reports no instance ID."""
+        return self.attachment_state == "unattached"
+
+    @property
+    def is_available(self) -> bool:
+        """Return an availability hint requiring explicit attachment and status data."""
+
+        return self.is_unattached and (self.status or "").lower() in {
             "available",
             "provisioned",
             "ready",

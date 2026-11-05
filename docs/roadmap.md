@@ -281,6 +281,17 @@ integrations, security boundaries, and highly available applications.
 
 ### Milestone 2 — Block storage, images, backup, and recovery
 
+Progress: **read-only discovery and selection implemented; lifecycle pending**
+
+- Volume name lookup and attached/unattached selection now traverse all pages.
+- Attachment evidence distinguishes attached, explicitly unattached and unknown;
+  missing fields no longer imply availability. Availability remains a local hint.
+- Mocked regressions cover pagination, duplicate names, partial metadata and
+  failures on later pages. A read-only block-storage live suite is prepared;
+  verification is deferred until service recovery.
+
+Still to implement and verify:
+
 - Volumes and volume lifecycle
 - Instance volume attachment/detachment
 - Volume expansion
