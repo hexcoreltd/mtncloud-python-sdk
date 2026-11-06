@@ -178,6 +178,10 @@ would normally require a major release in a mature stable SDK.
 
 ### Fixed
 
+- CLI help-scope tests normalize ANSI styling before checking option names,
+  fixing the CI failures with colored help output. Volume and application help
+  regressions exercise both plain and forced-color rendering.
+
 - Live MTN contract mismatches found on 2026-11-05:
   - `routers.get_interface(router_id, subnet_id)` finds MTN interfaces, which
     carry a network reference and CIDR but no subnet reference, by checking each

@@ -12,6 +12,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from rich.text import Text
 
 from mtn_cloud import ClientSettings, MtnCloudClient, __version__
 from mtn_cloud.cli import main, output
@@ -961,11 +962,23 @@ def test_volume_named_zone_is_resolved_without_group_lookup(
 
 
 @pytest.mark.parametrize("command", ["list", "describe"])
+@pytest.mark.parametrize("force_color", [False, True], ids=["plain", "ansi"])
 def test_volume_help_lists_supported_scope_only(
-    capsys: pytest.CaptureFixture[str], command: str
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    force_color: bool,
 ) -> None:
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color" if force_color else "dumb")
+    if force_color:
+        monkeypatch.setenv("FORCE_COLOR", "1")
     assert _run(["volumes", command, "--help"]) == 0
-    help_text = capsys.readouterr().out
+    rendered = capsys.readouterr().out
+    if force_color:
+        assert "\x1b[" in rendered
+    help_text = Text.from_ansi(rendered).plain
     assert "--zone" in help_text
     assert "--group" not in help_text
 
@@ -1100,7 +1113,7 @@ def test_bucket_cli_help_does_not_offer_unsupported_scopes(
     capsys: pytest.CaptureFixture[str], command: str
 ) -> None:
     assert _run(["storage-buckets", command, "--help"]) == 0
-    help_text = capsys.readouterr().out
+    help_text = Text.from_ansi(capsys.readouterr().out).plain
     assert "--zone" not in help_text
     assert "--group" not in help_text
 

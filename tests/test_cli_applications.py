@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from rich.text import Text
 
 from mtn_cloud import ClientSettings, MtnCloudClient
 from mtn_cloud.cli import main
@@ -196,12 +197,21 @@ def test_inventory_can_mix_group_scoped_instances_and_applications(
     assert all(call.kwargs["params"]["siteId"] == 7 for call in transport.request.call_args_list)
 
 
+@pytest.mark.parametrize("force_color", [False, True], ids=["plain", "ansi"])
 def test_app_help_works_without_credentials_and_lists_supported_scope(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], force_color: bool
 ) -> None:
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("TERM", "xterm-256color" if force_color else "dumb")
+    if force_color:
+        monkeypatch.setenv("FORCE_COLOR", "1")
     monkeypatch.delenv("MTN_CLOUD_TOKEN")
     transport = Mock()
     assert run(transport, ["apps", "list", "--help"]) == 0
-    text = capsys.readouterr().out
+    rendered = capsys.readouterr().out
+    if force_color:
+        assert "\x1b[" in rendered
+    text = Text.from_ansi(rendered).plain
     assert "--group" in text and "--zone" not in text
     transport.request.assert_not_called()

@@ -145,6 +145,9 @@ They should not be hidden behind one ambiguous client abstraction.
 
 ### Quality baseline completed
 
+- CLI help-scope regressions cover plain and forced-color rendering, with ANSI
+  normalization before option assertions so terminal styling does not fail CI.
+
 - Strict mypy validation passes across the modern and legacy source tree.
 - Ruff formatting and lint checks pass in local and CI environments.
 - Unit tests and package builds remain green after the typing and formatting
