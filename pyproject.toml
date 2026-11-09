@@ -56,11 +56,11 @@ mtncloud = "mtn_cloud.cli:main"
 [project.optional-dependencies]
 cli = ["typer>=0.27.3,<1.0"]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.0.0",
-    "types-requests>=2.28.0",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.4",
+    "mypy>=2.4.1",
+    "types-requests>=2.33.0.20261030",
     "typer>=0.27.3,<1.0",
 ]
 docs = [
